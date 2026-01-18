@@ -4,16 +4,16 @@ import os
 from datetime import datetime
 
 # Import individual parsers
-# Ensure parsers/__init__.py exists in your folder!
+# Ensure that parsers/__init__.py exists in the parsers directory!
 try:
     from parsers.intercity import IntercityParser
     from parsers.osypa import OsypaParser
     from parsers.shuttle import ShuttleParser
 except ImportError as e:
-    logging.error(f"Import error: {e}. Make sure parsers/__init__.py exists.")
+    logging.error(f"Import error: {e}. Check if parsers/__init__.py exists.")
     raise
 
-# Configure logging to output to Docker stdout
+# Configure logging for Docker (outputs to stdout)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -22,7 +22,7 @@ logging.basicConfig(
 class BusScraper:
     def __init__(self, cache_file='bus_cache.json'):
         self.cache_file = cache_file
-        # Map provider names to their respective parser classes
+        # Initialize parser instances
         self.parsers = {
             "intercity": IntercityParser(),
             "osypa": OsypaParser(),
@@ -31,7 +31,7 @@ class BusScraper:
 
     def fetch_all_data(self):
         """
-        Triggers all parsers and aggregates data into a single dictionary.
+        Runs all parsers and saves aggregated results to a JSON cache.
         """
         all_data = {
             "last_updated": datetime.now().isoformat(),
@@ -39,14 +39,14 @@ class BusScraper:
         }
 
         for name, parser in self.parsers.items():
-            logging.info(f"Starting crawl for provider: {name}")
+            logging.info(f"Starting scraper for: {name}")
             try:
-                # Assuming each parser has a .get_data() method
+                # Get data from the specific parser
                 data = parser.get_data()
                 all_data["providers"][name] = data
-                logging.info(f"Successfully fetched data for {name}")
+                logging.info(f"Successfully updated {name}")
             except Exception as e:
-                logging.error(f"Failed to fetch data for {name}: {str(e)}")
+                logging.error(f"Error scraping {name}: {str(e)}")
                 all_data["providers"][name] = {"error": "Service unavailable", "data": []}
 
         self._save_to_cache(all_data)
@@ -54,21 +54,24 @@ class BusScraper:
 
     def _save_to_cache(self, data):
         """
-        Saves the aggregated data to a JSON file for the API to read.
+        Writes the results to the local JSON file.
         """
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure-ascii=False, indent=4)
-            logging.info(f"Cache updated successfully in {self.cache_file}")
+                # FIX: ensure_ascii (with underscore) is the correct parameter name
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            logging.info(f"Data saved to {self.cache_file}")
         except IOError as e:
-            logging.error(f"Could not write to cache file: {e}")
+            logging.error(f"File writing error: {e}")
 
-def run_scraper():
+# Helper function that main.py calls
+def get_all_data():
     """
-    Entry point for the scheduled task or manual trigger.
+    Wrapper function to maintain compatibility with main.py imports.
     """
     scraper = BusScraper()
     return scraper.fetch_all_data()
 
 if __name__ == "__main__":
-    run_scraper()
+    # If run directly, update the cache
+    get_all_data()
