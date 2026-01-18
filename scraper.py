@@ -1,57 +1,42 @@
 import json
-import logging
-from datetime import datetime
+import os
+from fastapi import FastAPI
+from scraper import get_all_data
 
-# Импорты (убедитесь, что файлы существуют)
-try:
-    from parsers.intercity import IntercityParser
-    # from parsers.osypa import OsypaParser   # Раскомментируйте, когда добавите код
-    # from parsers.shuttle import ShuttleParser # Раскомментируйте, когда добавите код
-except ImportError as e:
-    logging.error(f"Ошибка импорта парсеров: {e}")
+app = FastAPI()
+CACHE_FILE = "bus_cache.json"
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+@app.get("/")
+def read_root():
+    return {"status": "Bus Service API is online", "endpoints": "/api/buses"}
 
-class BusScraper:
-    def __init__(self, cache_file='bus_cache.json'):
-        self.cache_file = cache_file
-        self.parsers = {
-            "intercity": IntercityParser(),
-            # "osypa": OsypaParser(),
-            # "shuttle": ShuttleParser()
-        }
+@app.get("/api/status")
+def health_check():
+    """Used by Jenkins/Docker for health checks"""
+    return {"status": "ok"}
 
-    def fetch_all_data(self):
-        all_data = {
-            "last_updated": datetime.now().isoformat(),
-            "providers": {}
-        }
-
-        for name, parser in self.parsers.items():
-            logging.info(f"Запуск парсера: {name}")
-            try:
-                # ВЫЗОВ ИСПРАВЛЕННОГО МЕТОДА
-                data = parser.get_data()
-                all_data["providers"][name] = data
-                logging.info(f"Успешно: {name}")
-            except Exception as e:
-                logging.error(f"Ошибка в {name}: {e}")
-                # Если парсер упал, пишем ошибку в JSON, чтобы фронтенд знал
-                all_data["providers"][name] = {"error": str(e)}
-
-        self._save_to_cache(all_data)
-        print(">>> Cache Updated") # Для наглядности в логах
-        return all_data
-
-    def _save_to_cache(self, data):
+@app.get("/api/buses")
+def get_buses():
+    """
+    Returns the cached data. If cache is missing, triggers a scrape.
+    """
+    if os.path.exists(CACHE_FILE):
         try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
-        except Exception as e:
-            logging.error(f"Ошибка записи кэша: {e}")
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return get_all_data()
+    else:
+        return get_all_data()
 
-def get_all_data():
-    return BusScraper().fetch_all_data()
+@app.post("/api/refresh")
+def force_refresh():
+    """
+    Manually triggers the scraper to update data.
+    """
+    return get_all_data()
 
 if __name__ == "__main__":
-    get_all_data()
+    import uvicorn
+    # Host 0.0.0.0 is mandatory for Docker networking
+    uvicorn.run(app, host="0.0.0.0", port=8000)
