@@ -1,14 +1,14 @@
 import json
 import os
 from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse # Импортируем FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from scraper import get_all_data_async
-from app_html import HTML_TEMPLATE
+
+# Строка импорта app_html больше не нужна!
 
 app = FastAPI()
 
-# Enable CORS
 app.add_middleware(
     CORSMiddleware, 
     allow_origins=["*"], 
@@ -20,25 +20,19 @@ CACHE_FILE = "bus_cache.json"
 UPDATING = False
 
 def load_cache():
-    """Loads data from the JSON cache file."""
     if os.path.exists(CACHE_FILE):
         try:
             with open(CACHE_FILE, 'r', encoding='utf-8') as f: 
                 return json.load(f)
-        except: 
-            return None
+        except: return None
     return None
 
 async def update_task():
-    """Background task to update the cache asynchronously."""
     global UPDATING
     if UPDATING: return
     UPDATING = True
     try:
-        # Run the async scraper
         data = await get_all_data_async()
-        
-        # Atomic write to avoid corruption
         tmp = CACHE_FILE + ".tmp"
         with open(tmp, 'w', encoding='utf-8') as f: 
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -49,14 +43,15 @@ async def update_task():
     finally: 
         UPDATING = False
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-    """Returns the frontend HTML."""
-    return HTML_TEMPLATE
+# --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+@app.get("/")
+async def index():
+    # Отдаем файл из папки templates
+    return FileResponse("templates/index.html")
+# -----------------------
 
 @app.get("/api/data")
 async def get_data(bt: BackgroundTasks):
-    """Returns bus data. Triggers update if cache is missing."""
     data = load_cache()
     if not data and not UPDATING: 
         bt.add_task(update_task)
@@ -65,7 +60,6 @@ async def get_data(bt: BackgroundTasks):
 
 @app.post("/api/refresh")
 async def refresh(bt: BackgroundTasks):
-    """Force triggers a cache update."""
     if not UPDATING: 
         bt.add_task(update_task)
         return {"status": "started"}
@@ -73,5 +67,4 @@ async def refresh(bt: BackgroundTasks):
 
 @app.get("/api/status")
 def status():
-    """Checks if an update is currently in progress."""
     return {"updating": UPDATING}
