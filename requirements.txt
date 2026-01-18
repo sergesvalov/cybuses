@@ -2,5 +2,5 @@ fastapi
 uvicorn
 aiohttp
 beautifulsoup4
-requests
 pdfplumber
+requests

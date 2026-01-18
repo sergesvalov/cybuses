@@ -1,6 +1,5 @@
 import io
 import re
-import aiohttp
 import pdfplumber
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -8,141 +7,118 @@ from .base import BaseParser
 
 class ShuttleParser(BaseParser):
     async def parse(self, session, info):
-        """
-        Продвинутый парсер для Kapnos:
-        1. Заходит на сайт.
-        2. Ищет ссылку на PDF.
-        3. Скачивает PDF и парсит времена.
-        """
+        url = info['url']
+        if "limassolairportexpress" in url:
+            return await self.parse_limassol_html(session, info)
+        elif "kapnos" in url:
+            return await self.parse_kapnos_pdf(session, info)
+        return self.fallback_link(info, "Unknown Provider")
+
+    async def parse_limassol_html(self, session, info):
         results = []
-        base_url = info['url'] # https://kapnosairportshuttle.com/
+        soup = await self.get_soup(session, info['url'])
+        if not soup: return self.fallback_link(info, "Site Error")
+
+        groups = {}
+        current_head = "Schedule"
+        elements = soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'strong', 'td', 'li'])
         
-        print(f"[SHUTTLE] Searching PDF on {base_url}...")
-        
-        # 1. Получаем HTML главной страницы, чтобы найти ссылку на PDF
+        for el in elements:
+            txt = el.get_text(" ", strip=True)
+            if not txt: continue
+            lower = txt.lower()
+            is_lim = "limassol" in lower or "havouzas" in lower
+            is_air = "airport" in lower
+            
+            if (is_lim or is_air) and len(txt) < 100 and not re.search(r'\d{1,2}[:.]\d{2}', txt):
+                clean = txt.replace(":", "").strip()
+                if "havouzas" in lower: current_head = "Limassol ➝ Airport"
+                elif "airport" in lower: current_head = "Airport ➝ Limassol"
+                else: current_head = clean
+                if current_head not in groups: groups[current_head] = []
+                continue
+
+            raw = self.extract_times(txt)
+            if raw:
+                if current_head not in groups: groups[current_head] = []
+                for t, stars in raw:
+                    nt = self.normalize_time(t)
+                    if "00:00" <= nt <= "23:59":
+                        if not any(x['t'] == nt for x in groups[current_head]):
+                            groups[current_head].append({"t": nt, "n": stars, "f": nt + stars})
+
+        for head, t_list in groups.items():
+            if t_list:
+                t_list.sort(key=lambda x: x['t'])
+                results.append({
+                    "name": info['name'], "desc": head, "type": "all", "times": t_list,
+                    "url": info['url'], "prov": "shuttle", "notes": {}
+                })
+        return results or self.fallback_link(info, "No data found")
+
+    async def parse_kapnos_pdf(self, session, info):
+        base_url = info['url']
         try:
             async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
-                if r.status != 200:
-                    return self.fallback_link(info, "Сайт недоступен")
+                if r.status != 200: return self.fallback_link(info, "Site down")
                 html = await r.text()
-        except Exception as e:
-            return self.fallback_link(info, f"Error: {e}")
+        except Exception as e: return self.fallback_link(info, str(e))
 
-        # 2. Ищем ссылку на PDF (обычно href заканчивается на .pdf)
         soup = BeautifulSoup(html, 'html.parser')
         pdf_link = None
         for a in soup.find_all('a', href=True):
-            href = a['href']
-            # Ищем что-то похожее на файл расписания
-            if '.pdf' in href.lower() or 'timetable' in href.lower():
-                pdf_link = urljoin(base_url, href)
-                # Если нашли явный PDF, берем его и выходим
-                if '.pdf' in pdf_link.lower():
-                    break
+            if '.pdf' in a['href'].lower() or 'timetable' in a['href'].lower():
+                pdf_link = urljoin(base_url, a['href'])
+                if '.pdf' in pdf_link.lower(): break
         
-        if not pdf_link:
-            return self.fallback_link(info, "PDF не найден")
+        if not pdf_link: return self.fallback_link(info, "PDF not found")
 
-        print(f"[SHUTTLE] Found PDF: {pdf_link}")
-
-        # 3. Скачиваем PDF в память
         try:
             async with session.get(pdf_link, headers=self.HEADERS, ssl=False, timeout=30) as r:
-                if r.status != 200:
-                    return self.fallback_link(info, "Ошибка загрузки PDF")
+                if r.status != 200: return self.fallback_link(info, "PDF Error")
                 pdf_bytes = await r.read()
-        except Exception as e:
-            return self.fallback_link(info, f"Download err: {e}")
+        except: return self.fallback_link(info, "DL Error")
 
-        # 4. Парсим PDF через pdfplumber
         try:
-            extracted_data = self.extract_from_pdf(pdf_bytes)
-        except Exception as e:
-            print(f"PDF Parse Error: {e}")
-            return self.fallback_link(info, "Ошибка чтения PDF")
-
-        if not extracted_data:
-            return self.fallback_link(info, "Данные в PDF не найдены")
-
-        # 5. Формируем результаты
-        for route_name, times in extracted_data.items():
-            if not times: continue
+            data = {}
+            current_header = "General"
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if not text: continue
+                    for line in text.split('\n'):
+                        clean = line.strip()
+                        if not clean: continue
+                        lower = clean.lower()
+                        is_h = any(x in lower for x in ["from ", " to ", "nicosia", "larnaca", "paphos"])
+                        if is_h and len(clean) < 60 and not re.search(r'\d{1,2}[:.]\d{2}', clean):
+                            current_header = clean.replace(":", "").title()
+                            if current_header not in data: data[current_header] = []
+                            continue
+                        raw = self.extract_times(clean)
+                        if raw:
+                            if current_header not in data: data[current_header] = []
+                            for t, stars in raw:
+                                nt = self.normalize_time(t)
+                                if "00:00" <= nt <= "23:59" and not any(x['t'] == nt for x in data[current_header]):
+                                    data[current_header].append({"t": nt, "n": stars, "f": nt + stars})
             
-            # Сортируем времена
-            times.sort(key=lambda x: x['t'])
-            
-            # Добавляем ссылку на PDF, чтобы пользователь мог проверить
-            results.append({
-                "name": info['name'],
-                "desc": route_name, # Например "FROM NICOSIA"
-                "type": "all",
-                "times": times,
-                "url": pdf_link,    # Ссылка ведет прямо на PDF
-                "prov": info['provider'],
-                "notes": {}
-            })
-
-        return results
+            results = []
+            for k, v in data.items():
+                if v:
+                    v.sort(key=lambda x: x['t'])
+                    results.append({
+                        "name": info['name'], "desc": k, "type": "all", "times": v,
+                        "url": pdf_link, "prov": info['provider'], "notes": {}
+                    })
+            return results or self.fallback_link(info, "Empty PDF")
+        except: return self.fallback_link(info, "Parse Error")
 
     def fallback_link(self, info, reason):
-        """Возвращает просто кнопку-ссылку, если парсинг не удался"""
+        label = "Открыть сайт ↗"
+        if "kapnos" in info['url']: label = "Сайт (PDF не найден) ↗"
         return [{
-            "name": info['name'], 
-            "desc": f"Link Only ({reason})", 
-            "type": "all", 
-            "times": [{"t": "LINK", "n": "", "f": "Открыть PDF ↗", "url": info['url']}], 
-            "url": info['url'], 
-            "prov": info['provider'], 
-            "notes": {}
+            "name": info['name'], "desc": f"External Link ({reason})", "type": "all", 
+            "times": [{"t": "LINK", "n": "", "f": label, "url": info['url']}], 
+            "url": info['url'], "prov": info['provider'], "notes": {}
         }]
-
-    def extract_from_pdf(self, pdf_bytes):
-        """
-        Логика вытаскивания текста из PDF байтов.
-        Группирует времена по заголовкам (городам).
-        """
-        data = {}
-        current_header = "General Schedule"
-        
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                # Извлекаем текст, сохраняя примерную структуру
-                text = page.extract_text()
-                if not text: continue
-                
-                lines = text.split('\n')
-                for line in lines:
-                    line_clean = line.strip()
-                    if not line_clean: continue
-                    lower = line_clean.lower()
-                    
-                    # --- Поиск заголовков ---
-                    # Kapnos обычно пишет "FROM NICOSIA", "LARNACA AIRPORT TO..."
-                    is_header = any(x in lower for x in ["from ", " to ", "route", "nicosia", "larnaca", "paphos"])
-                    has_digits = any(c.isdigit() for c in line_clean)
-                    
-                    # Если строка похожа на заголовок (есть города, мало цифр)
-                    if is_header and len(line_clean) < 60 and not re.search(r'\d{1,2}[:.]\d{2}', line_clean):
-                        current_header = line_clean.replace(":", "").title() # Делаем красиво "From Nicosia"
-                        if current_header not in data:
-                            data[current_header] = []
-                        continue
-
-                    # --- Поиск времен ---
-                    raw = self.extract_times(line_clean)
-                    if raw:
-                        if current_header not in data:
-                            data[current_header] = []
-                            
-                        for t, stars in raw:
-                            nt = self.normalize_time(t)
-                            # Фильтруем явный мусор
-                            if "00:00" <= nt <= "23:59":
-                                # Проверяем на дубли
-                                if not any(x['t'] == nt for x in data[current_header]):
-                                    data[current_header].append({
-                                        "t": nt,
-                                        "n": stars,
-                                        "f": nt + stars
-                                    })
-        return data

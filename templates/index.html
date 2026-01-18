@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
     <title>Paphos Bus Board</title>
     <style>
-        :root { --p: #007bff; --bg: #f2f4f7; --card: #fff; }
+        :root { --p: #007bff; --bg: #f2f4f7; --card: #fff; --green: #28a745; }
         body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; -webkit-tap-highlight-color: transparent; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .refresh-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; transition: 0.3s; }
@@ -24,16 +24,24 @@
         .c-desc { font-size: 0.85rem; color: #666; margin-top: 2px; }
         
         .times-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); gap: 8px; }
+        
         .t-btn { 
             background: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 8px 0; 
             text-align: center; font-size: 14px; font-weight: 500; color: #333; cursor: pointer; 
-            position: relative; transition: 0.1s;
+            position: relative; transition: 0.2s;
         }
         .t-btn sup { color: #e74c3c; font-weight: bold; }
         .t-btn.has-note { background: #fff5f5; border-color: #ffcccc; }
-        .t-btn.has-note:active { transform: scale(0.95); }
+        
+        /* --- СТИЛИ ДЛЯ ПОДСВЕТКИ --- */
+        .t-btn.past { opacity: 0.4; background: #eee; color: #999; }
+        .t-btn.next { 
+            background: var(--green); color: #fff; border-color: var(--green); 
+            font-weight: 700; transform: scale(1.05); z-index: 2; 
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
+        }
+        /* --------------------------- */
 
-        /* MODAL */
         .modal { display: none; position: fixed; top: 0; left: 0; w: 100%; h: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
         .m-content { background: #fff; padding: 25px; border-radius: 16px; width: 80%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .m-time { font-size: 2rem; font-weight: 800; color: var(--p); margin-bottom: 10px; }
@@ -91,7 +99,7 @@
                 card.className = 'card';
                 
                 const timesHtml = r.times.map(t => {
-                    // Рендеринг кнопки-ссылки (PDF/Сайт)
+                    // ССЫЛКИ
                     if (t.t === 'LINK') {
                         const url = t.url || r.url; 
                         return `<a href="${url}" target="_blank" class="t-btn" 
@@ -100,7 +108,7 @@
                                 </a>`;
                     }
 
-                    // Рендеринг времени со сносками
+                    // ОБЫЧНОЕ ВРЕМЯ
                     const stars = t.n || '';
                     const noteTxt = t.note_txt ? t.note_txt.replace(/"/g, '&quot;') : ''; 
                     const hasNoteClass = noteTxt ? 'has-note' : '';
@@ -123,7 +131,55 @@
                 `;
                 c.appendChild(card);
             });
+
+            // Запускаем подсветку после рендера
+            highlightNext();
         }
+
+        // --- ЛОГИКА ПОДСВЕТКИ ---
+        function highlightNext() {
+            const now = new Date();
+            // Получаем минуты от начала дня
+            const curMins = now.getHours() * 60 + now.getMinutes();
+
+            document.querySelectorAll('.card').forEach(card => {
+                let foundNext = false; // Флаг, что мы нашли ПЕРВЫЙ будущий рейс
+                
+                card.querySelectorAll('.t-btn').forEach(btn => {
+                    // Игнорируем ссылки и кнопки без времени
+                    const txt = btn.innerText.replace(/[^\d:]/g, ''); 
+                    if (!txt || txt.length < 4) return;
+
+                    const [h, m] = txt.split(':').map(Number);
+                    let busMins = h * 60 + m;
+
+                    // Логика для ночи: если сейчас вечер (после 18:00), 
+                    // а автобус ночью (00:00 - 03:00), считаем, что автобус "завтра" (+24ч)
+                    let effectiveBus = busMins;
+                    let effectiveCur = curMins;
+                    
+                    if (effectiveBus < 180) effectiveBus += 1440; 
+                    if (effectiveCur < 180) effectiveCur += 1440;
+
+                    // Сброс классов
+                    btn.classList.remove('past', 'next');
+
+                    if (effectiveBus < effectiveCur) {
+                        btn.classList.add('past');
+                    } else {
+                        // Если это первый найденный будущий рейс - подсвечиваем
+                        if (!foundNext) {
+                            btn.classList.add('next');
+                            foundNext = true;
+                        }
+                    }
+                });
+            });
+        }
+        
+        // Обновляем подсветку раз в минуту, не перегружая данные
+        setInterval(highlightNext, 60000);
+        // ------------------------
 
         function setF(k, v, el) { 
             STATE[k] = v;

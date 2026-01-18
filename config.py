@@ -1,6 +1,3 @@
-# Route Configuration
-# provider: maps to the filename in 'parsers' folder
-
 ROUTES = {
     # INTERCITY
     "limassol": {"name": "Limassol", "url": "https://intercity-buses.com/en/routes/limassol-paphos-paphos-limassol/", "target": "limassol", "provider": "intercity"},
@@ -18,5 +15,5 @@ ROUTES = {
     
     # SHUTTLES
     "kapnos": {"name": "Kapnos Airport", "url": "https://kapnosairportshuttle.com/", "target": "airport", "provider": "shuttle"},
-    "limassol_airport": {"name": "Limassol Airport Express", "url": "http://enlimassolairportexpress.eu/", "target": "airport", "provider": "shuttle"}
+    "limassol_airport": {"name": "Limassol Airport Express", "url": "https://limassolairportexpress.eu/?page_id=280", "target": "airport", "provider": "shuttle"}
 }

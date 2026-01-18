@@ -1,11 +1,9 @@
 import json
 import os
 from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import FileResponse # Импортируем FileResponse
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from scraper import get_all_data_async
-
-# Строка импорта app_html больше не нужна!
 
 app = FastAPI()
 
@@ -43,12 +41,10 @@ async def update_task():
     finally: 
         UPDATING = False
 
-# --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
 @app.get("/")
 async def index():
-    # Отдаем файл из папки templates
+    # Отдаем HTML файл из папки templates
     return FileResponse("templates/index.html")
-# -----------------------
 
 @app.get("/api/data")
 async def get_data(bt: BackgroundTasks):
