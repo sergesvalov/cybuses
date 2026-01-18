@@ -1,42 +1,71 @@
 import json
-import os
-from fastapi import FastAPI
-from scraper import get_all_data
+import logging
+from datetime import datetime
 
-app = FastAPI()
-CACHE_FILE = "bus_cache.json"
+# Import your parsers
+# Ensure parsers/__init__.py exists!
+try:
+    from parsers.intercity import IntercityParser
+    # from parsers.osypa import OsypaParser
+    # from parsers.shuttle import ShuttleParser
+except ImportError as e:
+    logging.warning(f"Parser import failed: {e}")
 
-@app.get("/")
-def read_root():
-    return {"status": "Bus Service API is online", "endpoints": "/api/buses"}
+# Logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-@app.get("/api/status")
-def health_check():
-    """Used by Jenkins/Docker for health checks"""
-    return {"status": "ok"}
+class BusScraper:
+    def __init__(self, cache_file='bus_cache.json'):
+        self.cache_file = cache_file
+        self.parsers = {}
+        
+        # Initialize the Intercity parser if it was imported successfully
+        if 'IntercityParser' in globals():
+            self.parsers["intercity"] = IntercityParser()
 
-@app.get("/api/buses")
-def get_buses():
-    """
-    Returns the cached data. If cache is missing, triggers a scrape.
-    """
-    if os.path.exists(CACHE_FILE):
+    def fetch_all_data(self):
+        """
+        Runs all registered parsers and aggregates data into a JSON cache.
+        """
+        all_data = {
+            "last_updated": datetime.now().isoformat(),
+            "providers": {}
+        }
+
+        for name, parser in self.parsers.items():
+            logging.info(f"Triggering parser: {name}")
+            try:
+                # Calls the standardized method from BaseParser
+                data = parser.get_data()
+                all_data["providers"][name] = data
+                logging.info(f"Successfully updated: {name}")
+            except Exception as e:
+                logging.error(f"Error in {name}: {e}")
+                all_data["providers"][name] = {"error": str(e)}
+
+        self._save_to_cache(all_data)
+        return all_data
+
+    def _save_to_cache(self, data):
+        """Writes the resulting dictionary to a local JSON file."""
         try:
-            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return get_all_data()
-    else:
-        return get_all_data()
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            logging.info("Cache file updated.")
+        except Exception as e:
+            logging.error(f"Failed to save cache: {e}")
 
-@app.post("/api/refresh")
-def force_refresh():
+# --- IMPORTANT: THIS IS WHERE THE FUNCTION IS DEFINED ---
+def get_all_data():
     """
-    Manually triggers the scraper to update data.
+    Function used by main.py to trigger the scraping process.
     """
-    return get_all_data()
+    scraper = BusScraper()
+    return scraper.fetch_all_data()
 
 if __name__ == "__main__":
-    import uvicorn
-    # Host 0.0.0.0 is mandatory for Docker networking
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # If the script is run directly (python scraper.py), it updates the cache
+    get_all_data()
