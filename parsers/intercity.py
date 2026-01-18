@@ -1,37 +1,107 @@
-from parsers.base import BaseParser
+from .base import BaseParser
 
 class IntercityParser(BaseParser):
-    def __init__(self):
-        # Initialize the parent class
-        super().__init__()
-        self.url = "https://intercity-buses.com/?wp=routes" 
-
-    def get_data(self):
+    async def parse(self, session, info):
         """
-        Concrete implementation for Intercity Buses.
+        Parses Intercity bus schedules.
+        Distinguishes between 'From Paphos' and 'To Paphos'.
         """
-        print(f"DEBUG: Fetching {self.url}...")
+        results = []
+        soup = await self.get_soup(session, info['url'])
+        if not soup: 
+            return []
         
-        soup = self.get_soup(self.url)
+        # logic to extract notes could be added here
+        # notes = self.extract_notes(soup) 
+        notes = {} 
         
-        if not soup:
-            return {"error": "Failed to load Intercity website"}
+        target = info['target']
+        blocks = { "from_paphos": [], "to_paphos": [] }
+        current_dir = None
+        
+        # Priority tags to scan
+        tags = soup.find_all(['h2', 'h3', 'h4', 'strong', 'b', 'p', 'td', 'span', 'li', 'div'])
+        
+        for tag in tags:
+            txt = tag.get_text(" ", strip=True).lower()
+            
+            # Detect Direction
+            is_from_paphos = ("from paphos" in txt or "from pafos" in txt or 
+                              f"paphos - {target}" in txt or f"pafos - {target}" in txt)
+            
+            is_to_paphos = (f"from {target}" in txt or 
+                            f"{target} - paphos" in txt or f"{target} - pafos" in txt)
 
-        # --- PARSING LOGIC ---
-        
-        data = {
-            "provider": "Intercity Buses",
-            "routes": []
+            if is_from_paphos and len(txt) < 100:
+                current_dir = "from_paphos"
+                continue
+            
+            if is_to_paphos and len(txt) < 100:
+                current_dir = "to_paphos"
+                continue
+            
+            # Extract Times
+            if current_dir:
+                raw = self.extract_times(tag.get_text(" ", strip=True))
+                # Heuristic: usually a schedule block has multiple times
+                if len(raw) >= 3:
+                    times_only = [{"t": self.normalize_time(t[0]), "n": t[1]} for t in raw]
+                    blocks[current_dir].append(times_only)
+
+        # Mapping internal keys to display names
+        dir_titles = {
+            "from_paphos": f"Paphos ➝ {info['name']}",
+            "to_paphos": f"{info['name']} ➝ Paphos"
         }
 
-        # Example: Using the helper method to find all times on the page
-        # In a real scenario, you would target specific <table> or <div> elements first
-        text_content = soup.get_text()
-        times = self.extract_times(text_content)
-        notes = self.extract_notes(soup)
+        # Process the blocks
+        priority_order = ["from_paphos", "to_paphos"]
 
-        # Storing results
-        data["raw_times_sample"] = times[:10] # Show first 10 for verification
-        data["notes"] = notes
+        for d_key in priority_order:
+            b_list = blocks[d_key]
+            if not b_list: continue
 
-        return data
+            # Merge tables logic (0=Weekday, 1=Weekend)
+            # This logic mimics the original behavior
+            weekday_t, weekend_t = [], []
+            
+            if len(b_list) == 1:
+                weekday_t = b_list[0]
+                weekend_t = b_list[0]
+            else:
+                weekday_t = b_list[0]
+                weekend_t = b_list[1]
+                # If there are more blocks, append them to weekday
+                if len(b_list) > 2:
+                    for extra in b_list[2:]: 
+                        weekday_t.extend(extra)
+
+            def clean(lst):
+                """Remove duplicates and sort"""
+                seen, res = set(), []
+                for x in lst:
+                    if x['t'] not in seen: 
+                        res.append(x)
+                        seen.add(x['t'])
+                res.sort(key=lambda k: k['t'])
+                return res
+
+            final_wd = clean(weekday_t)
+            final_we = clean(weekend_t)
+            
+            base_desc = dir_titles[d_key]
+
+            # Add Weekday Result
+            results.append({
+                "name": info['name'], "desc": base_desc, "type": "weekday",
+                "times": final_wd, "url": info['url'], "prov": "intercity",
+                "notes": notes
+            })
+            # Add Weekend Result
+            results.append({
+                "name": info['name'], "desc": base_desc, "type": "weekend",
+                "times": final_we, "url": info['url'], "prov": "intercity",
+                "notes": notes
+            })
+
+        return results

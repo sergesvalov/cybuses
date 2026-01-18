@@ -1,5 +1,5 @@
 fastapi
 uvicorn
-requests
+aiohttp
 beautifulsoup4
-urllib3
+requests
