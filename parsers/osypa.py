@@ -3,81 +3,80 @@ from .base import BaseParser
 
 class OsypaParser(BaseParser):
     async def parse(self, session, info):
-        """
-        Парсер для городских автобусов (OSYPA).
-        """
         results = []
         soup = await self.get_soup(session, info['url'])
-        if not soup: 
-            return []
+        if not soup: return []
 
-        groups = {}
-        current_head = "Schedule"
-        
-        # Добавил 'div' в список тегов, так как современная верстка часто использует их
-        tags = soup.find_all(['h2', 'h3', 'h4', 'strong', 'b', 'p', 'td', 'span', 'li', 'div'])
-        
-        for el in tags:
-            # Убираем лишние пробелы и переносы
-            txt = el.get_text(" ", strip=True)
+        # Единый список всех времен с привязкой к заголовкам
+        grouped_times = {}
+        last_header = "Route Schedule" # Заголовок по умолчанию
+
+        # Проходим по ВСЕМ элементам в порядке появления
+        # Используем рекурсивный поиск всех строк
+        all_elements = soup.find_all(text=True)
+
+        for text in all_elements:
+            txt = text.strip()
             if not txt: continue
             
+            # Пропускаем очень длинные куски текста (явно не расписание)
+            if len(txt) > 200: continue
+            
             lower = txt.lower()
+
+            # --- Эвристика заголовка ---
+            # Если в строке есть буквы, но НЕТ цифр времени (xx:xx), считаем это потенциальным заголовком
+            has_time = re.search(r'\d{1,2}[:.]\d{2}', txt)
             
-            # --- Логика поиска заголовка ---
-            # Ищем ключевые слова "From" или "Departure"
-            # Если строка короткая (<100) и в ней НЕТ времени - это точно заголовок
-            has_times = bool(re.search(r'\d{1,2}[:.]\d{2}', txt))
+            # Ключевые слова для заголовков
+            is_header_kw = any(w in lower for w in ['from', 'departure', 'route', 'monday', 'sunday', 'daily'])
             
-            is_header_candidate = ("from " in lower or "departure " in lower or "καραβέλα" in lower or "harbour" in lower)
-            
-            if is_header_candidate and not has_times and len(txt) < 100:
-                current_head = txt.replace(':', '').strip()
-                if current_head not in groups: 
-                    groups[current_head] = []
+            # Если это похоже на заголовок (короткий текст, есть буквы, нет времени)
+            if not has_time and len(txt) > 3 and (is_header_kw or len(txt) < 40):
+                # Очищаем заголовок от мусора
+                candidate = txt.replace(':', '').strip()
+                # Если кандидат адекватный, обновляем текущий заголовок
+                if len(candidate) > 2 and not candidate.isdigit():
+                    last_header = candidate
                 continue
 
-            # --- Логика поиска времени ---
-            raw = self.extract_times(txt)
-            if raw:
-                # Если в одной строке есть и "From ...", и время (например "From Karavella: 08:00, 09:00")
-                # То используем начало строки как заголовок
-                if is_header_candidate and len(txt) < 200:
-                    # Пытаемся вытащить название до первого двоеточия или цифры
-                    possible_head = re.split(r'[:\d]', txt)[0].strip()
-                    if len(possible_head) > 3:
-                        current_head = possible_head
-
-                if current_head not in groups: 
-                    groups[current_head] = []
+            # --- Поиск времени ---
+            raw_times = self.extract_times(txt)
+            if raw_times:
+                if last_header not in grouped_times:
+                    grouped_times[last_header] = []
                 
-                for t, stars in raw:
+                for t, stars in raw_times:
                     nt = self.normalize_time(t)
-                    
-                    # Фильтрация некорректных времен (иногда парсятся телефоны или годы)
-                    # Разрешаем 00:00-02:00 (ночные) и 04:00-23:59
-                    # Если попадет мусор типа "2024", он отсеется
-                    if (nt >= "00:00" and nt <= "02:30") or (nt >= "04:00" and nt <= "23:59"):
-                        # Дедупликация (чтобы не добавлять одно и то же время из вложенных тегов)
-                        if not any(x['t'] == nt for x in groups[current_head]):
-                            groups[current_head].append({
-                                "t": nt, 
-                                "n": stars, 
-                                "f": nt + stars # Поле для фронтенда
+                    # Минимальная валидация (просто чтобы это было похоже на время)
+                    if len(nt) == 5 and nt[2] == ':':
+                        # Проверяем на дубликаты в текущей группе
+                        if not any(x['t'] == nt for x in grouped_times[last_header]):
+                            grouped_times[last_header].append({
+                                "t": nt,
+                                "n": stars,
+                                "f": nt + stars,
+                                "note_txt": "" # Для Osypa пока пусто
                             })
 
-        # Формируем итоговый список
-        for head, t_list in groups.items():
-            if t_list:
-                t_list.sort(key=lambda x: x['t'])
-                results.append({
-                    "name": info['name'], 
-                    "desc": head,        # Название направления
-                    "type": "all",       # У городских обычно одно расписание (или сложно разделить)
-                    "times": t_list, 
-                    "url": info['url'], 
-                    "prov": "osypa", 
-                    "notes": {}
-                })
-        
+        # Формируем итоговый результат
+        for head, t_list in grouped_times.items():
+            if not t_list: continue
+            
+            # Сортировка
+            t_list.sort(key=lambda x: x['t'])
+            
+            # Если список времен слишком короткий (1 шт) и заголовок странный, возможно это мусор (телефон, часы работы)
+            # Но лучше показать лишнее, чем не показать ничего.
+            
+            results.append({
+                "name": info['name'],
+                "desc": head,
+                "type": "all",
+                "times": t_list,
+                "url": info['url'],
+                "prov": "osypa",
+                "notes": {}
+            })
+
         return results
