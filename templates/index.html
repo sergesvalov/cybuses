@@ -12,42 +12,28 @@
         .spinning { animation: spin 1s linear infinite; opacity: 0.5; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        .scroll-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 12px; scrollbar-width: none; }
+        /* Rows for filters */
+        .filter-group { margin-bottom: 15px; }
+        .f-label { font-size: 12px; color: #888; margin-bottom: 6px; padding-left: 5px; text-transform: uppercase; font-weight: bold; }
+        .scroll-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
         .scroll-row::-webkit-scrollbar { display: none; }
 
-        .d-btn { padding: 10px 14px; background: #fff; border: 1px solid #ddd; border-radius: 20px; white-space: nowrap; font-size: 14px; cursor: pointer; user-select: none; }
+        .d-btn { padding: 8px 14px; background: #fff; border: 1px solid #ddd; border-radius: 20px; white-space: nowrap; font-size: 14px; cursor: pointer; user-select: none; transition: 0.2s; }
         .d-btn.active { background: var(--p); color: #fff; border-color: var(--p); box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
 
         .card { background: var(--card); border-radius: 16px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .c-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
         .c-title { font-weight: 700; font-size: 1.1rem; }
         .c-desc { font-size: 0.85rem; color: #666; margin-top: 2px; }
+        .day-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #eee; color: #888; margin-left: 8px; vertical-align: middle; }
         
         .times-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)); gap: 8px; }
-        
-        .t-btn { 
-            background: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 8px 0; 
-            text-align: center; font-size: 14px; font-weight: 500; color: #333; cursor: pointer; 
-            position: relative; transition: 0.2s;
-        }
-        .t-btn sup { color: #e74c3c; font-weight: bold; }
-        .t-btn.has-note { background: #fff5f5; border-color: #ffcccc; }
-        
-        /* --- СТИЛИ ДЛЯ ПОДСВЕТКИ --- */
+        .t-btn { background: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 8px 0; text-align: center; font-size: 14px; font-weight: 500; color: #333; cursor: pointer; position: relative; transition: 0.2s; }
         .t-btn.past { opacity: 0.4; background: #eee; color: #999; }
-        .t-btn.next { 
-            background: var(--green); color: #fff; border-color: var(--green); 
-            font-weight: 700; transform: scale(1.05); z-index: 2; 
-            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
-        }
-        /* --------------------------- */
+        .t-btn.next { background: var(--green); color: #fff; border-color: var(--green); font-weight: 700; transform: scale(1.05); z-index: 2; box-shadow: 0 4px 10px rgba(40,167,69,0.3); }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; w: 100%; h: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-        .m-content { background: #fff; padding: 25px; border-radius: 16px; width: 80%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .m-time { font-size: 2rem; font-weight: 800; color: var(--p); margin-bottom: 10px; }
-        .m-note { font-size: 1rem; color: #444; margin-bottom: 20px; line-height: 1.5; background: #f8f9fa; padding: 10px; border-radius: 8px; }
-        .m-close { background: var(--p); color: #fff; border: none; padding: 10px 25px; border-radius: 20px; font-size: 1rem; width: 100%; cursor: pointer; }
-
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .m-content { background: #fff; padding: 25px; border-radius: 16px; width: 80%; max-width: 320px; text-align: center; }
         .loader { text-align: center; padding: 40px; color: #888; }
     </style>
 </head>
@@ -57,72 +43,100 @@
         <button class="refresh-btn" id="r-btn" onclick="refresh()">↻</button>
     </div>
 
-    <div class="scroll-row">
-        <button class="d-btn active" onclick="setF('p','all',this)">All</button>
-        <button class="d-btn" onclick="setF('p','intercity',this)">Intercity</button>
-        <button class="d-btn" onclick="setF('p','osypa',this)">City</button>
-        <button class="d-btn" onclick="setF('p','shuttle',this)">Airport</button>
+    <div class="filter-group">
+        <div class="f-label">Агентство</div>
+        <div class="scroll-row">
+            <button class="d-btn active" onclick="setF('p','all',this)">Все</button>
+            <button class="d-btn" onclick="setF('p','intercity',this)">Intercity</button>
+            <button class="d-btn" onclick="setF('p','osypa',this)">City (Osypa)</button>
+            <button class="d-btn" onclick="setF('p','shuttle',this)">Airport</button>
+        </div>
+    </div>
+
+    <div class="filter-group">
+        <div class="f-label">День недели</div>
+        <div class="scroll-row">
+            <button id="day-auto" class="d-btn active" onclick="setF('d','auto',this)">Авто</button>
+            <button id="day-weekday" class="d-btn" onclick="setF('d','weekday',this)">Будни</button>
+            <button id="day-weekend" class="d-btn" onclick="setF('d','weekend',this)">Выходные</button>
+        </div>
     </div>
 
     <div id="app"></div>
 
     <div id="modal" class="modal" onclick="closeM(event)">
         <div class="m-content" onclick="event.stopPropagation()">
-            <div id="m-t" class="m-time"></div>
-            <div id="m-n" class="m-note"></div>
-            <button class="m-close" onclick="closeM()">OK</button>
+            <div id="m-t" style="font-size:2rem; font-weight:800; color:var(--p); margin-bottom:10px;"></div>
+            <div id="m-n" style="font-size:1rem; color:#444; margin-bottom:20px; line-height:1.5; background:#f8f9fa; padding:10px; border-radius:8px;"></div>
+            <button onclick="closeM()" style="background:var(--p); color:#fff; border:none; padding:10px 25px; border-radius:20px; font-size:1rem; width:100%;">OK</button>
         </div>
     </div>
 
     <script>
         let DATA = [];
-        let STATE = { p: 'all' };
+        let STATE = { 
+            p: 'all', // Провайдер
+            d: 'auto' // Тип дня (auto, weekday, weekend)
+        };
+
+        // Определяем текущий тип дня
+        function getCurrentDayType() {
+            const day = new Date().getDay();
+            // 0 = Воскресенье, 6 = Суббота
+            return (day === 0 || day === 6) ? 'weekend' : 'weekday';
+        }
 
         async function load() {
-            document.getElementById('app').innerHTML = '<div class="loader">Loading schedules...</div>';
+            document.getElementById('app').innerHTML = '<div class="loader">Загрузка расписания...</div>';
             try {
                 const res = await fetch('/api/data');
                 DATA = await res.json();
                 render();
-            } catch(e) { document.getElementById('app').innerHTML = '<div class="loader">Error loading data</div>'; }
+            } catch(e) { document.getElementById('app').innerHTML = '<div class="loader">Ошибка загрузки</div>'; }
         }
 
         function render() {
             const c = document.getElementById('app');
             c.innerHTML = '';
-            const fData = DATA.filter(d => STATE.p === 'all' || d.prov === STATE.p);
             
-            if(!fData.length) { c.innerHTML = '<div class="loader">No routes found</div>'; return; }
+            // Определяем, какой тип дня сейчас активен
+            const activeDayType = STATE.d === 'auto' ? getCurrentDayType() : STATE.d;
+
+            // ФИЛЬТРАЦИЯ
+            const fData = DATA.filter(route => {
+                // 1. Фильтр по провайдеру
+                const matchProv = (STATE.p === 'all' || route.prov === STATE.p);
+                
+                // 2. Фильтр по дню недели
+                // Маршруты с типом 'all' показываем всегда. 
+                // Остальные — только если они совпадают с выбранным днем.
+                const matchDay = (route.type === 'all' || route.type === activeDayType);
+
+                return matchProv && matchDay;
+            });
+
+            if(!fData.length) { c.innerHTML = '<div class="loader">Рейсов не найдено</div>'; return; }
 
             fData.forEach(r => {
                 const card = document.createElement('div');
                 card.className = 'card';
                 
-                const timesHtml = r.times.map(t => {
-                    // ССЫЛКИ
-                    if (t.t === 'LINK') {
-                        const url = t.url || r.url; 
-                        return `<a href="${url}" target="_blank" class="t-btn" 
-                                   style="grid-column: 1 / -1; text-decoration: none; color: #fff; background-color: var(--p); border-color: var(--p);">
-                                   ${t.f}
-                                </a>`;
-                    }
+                // Иконка типа дня для наглядности (только для межгорода)
+                const dayBadge = r.type !== 'all' ? `<span class="day-badge">${r.type === 'weekday' ? 'Будни' : 'Сб/Вс'}</span>` : '';
 
-                    // ОБЫЧНОЕ ВРЕМЯ
-                    const stars = t.n || '';
+                const timesHtml = r.times.map(t => {
+                    if (t.t === 'LINK') {
+                        return `<a href="${t.url || r.url}" target="_blank" class="t-btn" style="grid-column: 1/-1; text-decoration:none; background:var(--p); color:#fff;">${t.f}</a>`;
+                    }
                     const noteTxt = t.note_txt ? t.note_txt.replace(/"/g, '&quot;') : ''; 
-                    const hasNoteClass = noteTxt ? 'has-note' : '';
-                    const action = noteTxt ? `onclick="showN('${t.t}', '${stars}', '${noteTxt}')"` : '';
-                        
-                    return `<div class="t-btn ${hasNoteClass}" ${action}>
-                                ${t.t}<sup>${stars}</sup>
-                            </div>`;
+                    const action = noteTxt ? `onclick="showN('${t.t}', '${t.n}', '${noteTxt}')"` : '';
+                    return `<div class="t-btn ${noteTxt ? 'has-note' : ''}" ${action}>${t.t}<sup>${t.n||''}</sup></div>`;
                 }).join('');
 
                 card.innerHTML = `
                     <div class="c-head">
                         <div>
-                            <div class="c-title">${r.name}</div>
+                            <span class="c-title">${r.name}</span>${dayBadge}
                             <div class="c-desc">${r.desc}</div>
                         </div>
                         <a href="${r.url}" target="_blank" style="color:var(--p);text-decoration:none;font-size:1.2rem">↗</a>
@@ -132,54 +146,8 @@
                 c.appendChild(card);
             });
 
-            // Запускаем подсветку после рендера
             highlightNext();
         }
-
-        // --- ЛОГИКА ПОДСВЕТКИ ---
-        function highlightNext() {
-            const now = new Date();
-            // Получаем минуты от начала дня
-            const curMins = now.getHours() * 60 + now.getMinutes();
-
-            document.querySelectorAll('.card').forEach(card => {
-                let foundNext = false; // Флаг, что мы нашли ПЕРВЫЙ будущий рейс
-                
-                card.querySelectorAll('.t-btn').forEach(btn => {
-                    // Игнорируем ссылки и кнопки без времени
-                    const txt = btn.innerText.replace(/[^\d:]/g, ''); 
-                    if (!txt || txt.length < 4) return;
-
-                    const [h, m] = txt.split(':').map(Number);
-                    let busMins = h * 60 + m;
-
-                    // Логика для ночи: если сейчас вечер (после 18:00), 
-                    // а автобус ночью (00:00 - 03:00), считаем, что автобус "завтра" (+24ч)
-                    let effectiveBus = busMins;
-                    let effectiveCur = curMins;
-                    
-                    if (effectiveBus < 180) effectiveBus += 1440; 
-                    if (effectiveCur < 180) effectiveCur += 1440;
-
-                    // Сброс классов
-                    btn.classList.remove('past', 'next');
-
-                    if (effectiveBus < effectiveCur) {
-                        btn.classList.add('past');
-                    } else {
-                        // Если это первый найденный будущий рейс - подсвечиваем
-                        if (!foundNext) {
-                            btn.classList.add('next');
-                            foundNext = true;
-                        }
-                    }
-                });
-            });
-        }
-        
-        // Обновляем подсветку раз в минуту, не перегружая данные
-        setInterval(highlightNext, 60000);
-        // ------------------------
 
         function setF(k, v, el) { 
             STATE[k] = v;
@@ -188,13 +156,40 @@
             render(); 
         }
 
-        function showN(t, s, n) { 
-            document.getElementById('m-t').innerText = t + s; 
-            document.getElementById('m-n').innerText = n || 'No details available'; 
-            document.getElementById('modal').style.display = 'flex'; 
+        function highlightNext() {
+            const now = new Date();
+            const curMins = now.getHours() * 60 + now.getMinutes();
+
+            document.querySelectorAll('.card').forEach(card => {
+                let foundNext = false;
+                card.querySelectorAll('.t-btn').forEach(btn => {
+                    const txt = btn.innerText.replace(/[^\d:]/g, ''); 
+                    if (!txt || txt.length < 4) return;
+                    const [h, m] = txt.split(':').map(Number);
+                    let busMins = h * 60 + m;
+                    
+                    let effectiveBus = busMins;
+                    let effectiveCur = curMins;
+                    if (effectiveBus < 180) effectiveBus += 1440; 
+                    if (effectiveCur < 180) effectiveCur += 1440;
+
+                    btn.classList.remove('past', 'next');
+                    if (effectiveBus < effectiveCur) {
+                        btn.classList.add('past');
+                    } else if (!foundNext) {
+                        btn.classList.add('next');
+                        foundNext = true;
+                    }
+                });
+            });
         }
 
-        function closeM(e) { document.getElementById('modal').style.display = 'none'; }
+        function showN(t, s, n) { 
+            document.getElementById('m-t').innerText = t + s; 
+            document.getElementById('m-n').innerText = n; 
+            document.getElementById('modal').style.display = 'flex'; 
+        }
+        function closeM() { document.getElementById('modal').style.display = 'none'; }
 
         async function refresh() {
             const btn = document.getElementById('r-btn'); btn.classList.add('spinning');
@@ -204,7 +199,9 @@
                 if(!s.updating) { clearInterval(iv); btn.classList.remove('spinning'); load(); }
             }, 2000);
         }
+        
         load();
+        setInterval(highlightNext, 60000);
     </script>
 </body>
 </html>
