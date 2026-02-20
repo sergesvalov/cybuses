@@ -36,79 +36,109 @@ class ShuttleParser(BaseParser):
             return self.fallback_link(info, "Parse Error")
 
     def extract_limassol_express_logic(self, pdf_bytes, pdf_url, info):
-        """
-        Улучшенная логика специально для Limassol Express с учетом греческого языка
-        и разделения по дням недели.
-        """
         raw_results = []
         
-        # Ключевые слова для определения типа дня
-        WEEKDAY_MARKERS = ["Δευτέρα", "Παρασκευή", "Monday", "Friday", "Mon-Fri"]
-        WEEKEND_MARKERS = ["Σάββατο", "Κυριακή", "Saturday", "Sunday", "Sat-Sun", "Sat & Sun"]
+        WEEKDAY_MARKERS = ["δευτέρα", "παρασκευή", "monday", "friday", "mon-fri", "mon", "fri"]
+        WEEKEND_MARKERS = ["σάββατο", "κυριακή", "saturday", "sunday", "sat-sun", "sat & sun", "sat", "sun"]
+        LIM_MARKERS = ["λεμεσό", "limassol"]
+        AIR_MARKERS = ["αεροδρόμιο", "airport"]
+        
+        schedule = {
+            "weekday": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []},
+            "weekend": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []}
+        }
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            current_day_type = "weekday"
+            col_dirs = {"left": "Limassol ➝ Airport", "right": "Airport ➝ Limassol"}
+                
             for page in pdf.pages:
-                text = page.extract_text()
-                if not text: continue
+                page_mid = page.width / 2
+                words = page.extract_words()
                 
-                # Состояния для парсинга текущей страницы
-                current_day_type = "weekday" 
-                current_direction = "Limassol ➝ Airport"
+                # Group words into lines
+                words.sort(key=lambda w: (w['top'], w['x0']))
                 
-                # Временные хранилища
-                schedule = {
-                    "weekday": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []},
-                    "weekend": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []}
-                }
+                lines = []
+                for w in words:
+                    added = False
+                    if lines:
+                        last_line = lines[-1]
+                        if abs(last_line['top'] - w['top']) <= 5:
+                            last_line['words'].append(w)
+                            last_line['text'] += " " + w['text']
+                            added = True
+                    if not added:
+                        lines.append({
+                            'top': w['top'],
+                            'words': [w],
+                            'text': w['text']
+                        })
 
-                lines = text.split('\n')
                 for line in lines:
-                    clean = line.strip()
-                    if not clean: continue
-                    lower = clean.lower()
+                    low_text = line['text'].lower()
 
-                    # 1. Определяем тип дня (Будни / Выходные)
-                    if any(m in clean for m in WEEKEND_MARKERS):
+                    # 1. Detect Day Type
+                    if any(m in low_text for m in WEEKEND_MARKERS):
                         current_day_type = "weekend"
-                    elif any(m in clean for m in WEEKDAY_MARKERS):
+                    elif any(m in low_text for m in WEEKDAY_MARKERS):
                         current_day_type = "weekday"
 
-                    # 2. Определяем направление
-                    # Греческий: Λεμεσός (Лимассол), Αεροδρόμιο (Аэропорт)
-                    if "από λεμεσό" in lower or "from limassol" in lower:
-                        current_direction = "Limassol ➝ Airport"
-                    elif "από αεροδρόμιο" in lower or "from airport" in lower:
-                        current_direction = "Airport ➝ Limassol"
+                    # 2. Split words into left and right halves
+                    left_words = [w for w in line['words'] if w['x0'] < page_mid]
+                    right_words = [w for w in line['words'] if w['x0'] >= page_mid]
+                    
+                    left_txt = " ".join([w['text'] for w in left_words]).lower()
+                    right_txt = " ".join([w['text'] for w in right_words]).lower()
 
-                    # 3. Извлекаем время
-                    times = self.extract_times(clean)
-                    for t_str, stars in times:
+                    # 3. Detect column direction headers
+                    if any(m in left_txt for m in LIM_MARKERS):
+                        col_dirs["left"] = "Limassol ➝ Airport"
+                    elif any(m in left_txt for m in AIR_MARKERS):
+                        col_dirs["left"] = "Airport ➝ Limassol"
+                        
+                    if any(m in right_txt for m in LIM_MARKERS):
+                        col_dirs["right"] = "Limassol ➝ Airport"
+                    elif any(m in right_txt for m in AIR_MARKERS):
+                        col_dirs["right"] = "Airport ➝ Limassol"
+
+                    # 4. Extract times and push to corresponding column
+                    for t_str, stars in self.extract_times(left_txt):
                         nt = self.normalize_time(t_str)
-                        # Валидация: исключаем мусорные цифры (типа 2025 или части телефонов)
-                        # Время должно быть в рамках 00:00 - 23:59
                         if ":" in nt:
                             h, m = map(int, nt.split(':'))
                             if 0 <= h <= 23 and 0 <= m <= 59:
-                                # Проверка на дубликаты
-                                if not any(x['t'] == nt for x in schedule[current_day_type][current_direction]):
-                                    schedule[current_day_type][current_direction].append({
+                                d = col_dirs["left"]
+                                if not any(x['t'] == nt for x in schedule[current_day_type][d]):
+                                    schedule[current_day_type][d].append({
+                                        "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
+                                    })
+                                    
+                    for t_str, stars in self.extract_times(right_txt):
+                        nt = self.normalize_time(t_str)
+                        if ":" in nt:
+                            h, m = map(int, nt.split(':'))
+                            if 0 <= h <= 23 and 0 <= m <= 59:
+                                d = col_dirs["right"]
+                                if not any(x['t'] == nt for x in schedule[current_day_type][d]):
+                                    schedule[current_day_type][d].append({
                                         "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
                                     })
 
-                # Превращаем накопленные данные в формат для фронтенда
-                for d_type in ["weekday", "weekend"]:
-                    for direct, t_list in schedule[d_type].items():
-                        if t_list:
-                            t_list.sort(key=lambda x: x['t'])
-                            raw_results.append({
-                                "name": info['name'],
-                                "desc": direct,
-                                "type": d_type, # Теперь корректно ставится weekday/weekend
-                                "times": t_list,
-                                "url": pdf_url,
-                                "prov": info['provider'],
-                                "notes": {}
-                            })
+        # Format output
+        for d_type in ["weekday", "weekend"]:
+            for direct, t_list in schedule[d_type].items():
+                if t_list:
+                    t_list.sort(key=lambda x: x['t'])
+                    raw_results.append({
+                        "name": info['name'],
+                        "desc": direct,
+                        "type": d_type,
+                        "times": t_list,
+                        "url": pdf_url,
+                        "prov": info['provider'],
+                        "notes": {}
+                    })
         return raw_results
 
     async def find_and_parse_kapnos(self, session, info):
