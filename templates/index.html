@@ -3,47 +3,38 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Paphos Bus Board</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <link rel="stylesheet" href="/static/css/style.css">
     <script type="module" src="/static/js/app.js"></script>
 </head>
 
 <body>
     <div class="header">
-        <h2 style="margin:0">🇨🇾 Bus Board</h2>
-        <button class="refresh-btn" id="r-btn" onclick="window.refresh()">↻</button>
+        <h2>🇨🇾 Bus Board</h2>
+        <button class="refresh-btn" id="r-btn" aria-label="Refresh data">↻</button>
     </div>
 
-    <div class="filter-group">
-        <div class="f-label">Агентство</div>
-        <div class="scroll-row">
-            <button class="d-btn active" onclick="window.setF('p','all',this)">Все</button>
-            <button class="d-btn" onclick="window.setF('p','intercity',this)">Intercity</button>
-            <button class="d-btn" onclick="window.setF('p','osypa',this)">City (Osypa)</button>
-            <button class="d-btn" onclick="window.setF('p','shuttle',this)">Airport</button>
-        </div>
+    <!-- Filter Components Mount Point -->
+    <div id="filter-container">
+        <!-- Injected by FilterBar.js -->
     </div>
 
-    <div class="filter-group">
-        <div class="f-label">День недели</div>
-        <div class="scroll-row">
-            <button id="day-auto" class="d-btn active" onclick="window.setF('d','auto',this)">Авто</button>
-            <button id="day-weekday" class="d-btn" onclick="window.setF('d','weekday',this)">Будни</button>
-            <button id="day-weekend" class="d-btn" onclick="window.setF('d','weekend',this)">Выходные</button>
-        </div>
-    </div>
-
+    <!-- App / Cards Mount Point -->
     <div id="app"></div>
 
-    <div id="modal" class="modal" onclick="window.closeM(event)">
-        <div class="m-content" onclick="event.stopPropagation()">
-            <div id="m-t" style="font-size:2rem; font-weight:800; color:var(--p); margin-bottom:10px;"></div>
-            <div id="m-n"
-                style="font-size:1rem; color:#444; margin-bottom:20px; line-height:1.5; background:#f8f9fa; padding:10px; border-radius:8px;">
-            </div>
-            <button onclick="window.closeM()"
-                style="background:var(--p); color:#fff; border:none; padding:10px 25px; border-radius:20px; font-size:1rem; width:100%;">OK</button>
+    <!-- Modal Component Mount Point -->
+    <div id="modal" class="modal">
+        <div class="m-content">
+            <div id="m-t"></div>
+            <div id="m-n"></div>
+            <button id="m-close" class="m-btn">OK</button>
         </div>
     </div>
 </body>
