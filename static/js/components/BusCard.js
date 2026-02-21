@@ -7,7 +7,6 @@ export class BusCard {
     render() {
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.animation = `fadeIn 0.3s ease forwards`;
 
         const dayBadge = this.data.type !== 'all'
             ? `<span class="day-badge">${this.data.type === 'weekday' ? 'Будни' : 'Сб/Вс'}</span>`
