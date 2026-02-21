@@ -21,11 +21,12 @@ export class FilterBar {
             </div>
 
             <div class="filter-group">
-                <div class="f-label">День недели</div>
+                <div class="f-label">День недели / Время</div>
                 <div class="scroll-row" id="day-filters">
                     <button class="d-btn active" data-filter="d" data-val="auto">Авто</button>
                     <button class="d-btn" data-filter="d" data-val="weekday">Будни</button>
                     <button class="d-btn" data-filter="d" data-val="weekend">Выходные</button>
+                    <button class="d-btn" data-filter="d" data-val="nearest">Ближайшие</button>
                 </div>
             </div>
         `;

@@ -55,13 +55,42 @@ class BusApp {
         this.appEl.innerHTML = '';
 
         const state = this.filterBar.getState();
-        const activeDayType = state.d === 'auto' ? this.getCurrentDayType() : state.d;
+        const activeDayType = state.d === 'auto' || state.d === 'nearest' ? this.getCurrentDayType() : state.d;
 
-        const fData = this.data.filter(route => {
+        const fData = this.data.reduce((acc, route) => {
             const matchProv = (state.p === 'all' || route.prov === state.p);
             const matchDay = (route.type === 'all' || route.type === activeDayType);
-            return matchProv && matchDay;
-        });
+
+            if (!matchProv || !matchDay) return acc;
+
+            if (state.d === 'nearest') {
+                const now = new Date();
+                const curMins = now.getHours() * 60 + now.getMinutes();
+
+                const filteredTimes = route.times.filter(t => {
+                    const txt = (t.t || "").replace(/[^\d:]/g, '');
+                    if (!txt) return false;
+                    const [h, m] = txt.split(':').map(Number);
+                    let busMins = h * 60 + m;
+
+                    let effectiveBus = busMins;
+                    let effectiveCur = curMins;
+
+                    if (effectiveBus < 180) effectiveBus += 1440;
+                    if (effectiveCur < 180) effectiveCur += 1440;
+
+                    const diff = effectiveBus - effectiveCur;
+                    return diff >= 30 && diff <= 120;
+                });
+
+                if (filteredTimes.length > 0) {
+                    acc.push({ ...route, times: filteredTimes });
+                }
+            } else {
+                acc.push(route);
+            }
+            return acc;
+        }, []);
 
         if (!fData.length) {
             this.appEl.innerHTML = '<div class="loader">Рейсов не найдено</div>';
