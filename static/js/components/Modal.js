@@ -1,6 +1,7 @@
 export class Modal {
     constructor(modalId) {
         this.modalEl = document.getElementById(modalId);
+        this.overlayEl = document.getElementById('m-overlay');
         this.titleEl = document.getElementById('m-t');
         this.noteEl = document.getElementById('m-n');
         this.closeBtn = document.getElementById('m-close');
@@ -9,10 +10,8 @@ export class Modal {
     }
 
     bindEvents() {
-        this.modalEl.addEventListener('click', (e) => {
-            if (e.target === this.modalEl) {
-                this.close();
-            }
+        this.overlayEl.addEventListener('click', () => {
+            this.close();
         });
 
         this.closeBtn.addEventListener('click', () => {

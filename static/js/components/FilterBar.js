@@ -13,20 +13,20 @@ export class FilterBar {
             <div class="filter-group">
                 <div class="f-label">Агентство</div>
                 <div class="scroll-row" id="agency-filters">
-                    <button class="d-btn active" data-filter="p" data-val="all">Все</button>
-                    <button class="d-btn" data-filter="p" data-val="intercity">Intercity</button>
-                    <button class="d-btn" data-filter="p" data-val="osypa">City (Osypa)</button>
-                    <button class="d-btn" data-filter="p" data-val="shuttle">Airport</button>
+                    <button class="pill-btn active" data-filter="p" data-val="all">Все</button>
+                    <button class="pill-btn" data-filter="p" data-val="intercity">Intercity</button>
+                    <button class="pill-btn" data-filter="p" data-val="osypa">City (Osypa)</button>
+                    <button class="pill-btn" data-filter="p" data-val="shuttle">Airport</button>
                 </div>
             </div>
 
             <div class="filter-group">
                 <div class="f-label">День недели / Время</div>
                 <div class="scroll-row" id="day-filters">
-                    <button class="d-btn active" data-filter="d" data-val="auto">Авто</button>
-                    <button class="d-btn" data-filter="d" data-val="weekday">Будни</button>
-                    <button class="d-btn" data-filter="d" data-val="weekend">Выходные</button>
-                    <button class="d-btn" data-filter="d" data-val="nearest">Ближайшие</button>
+                    <button class="pill-btn active" data-filter="d" data-val="auto">Авто</button>
+                    <button class="pill-btn" data-filter="d" data-val="weekday">Будни</button>
+                    <button class="pill-btn" data-filter="d" data-val="weekend">Выходные</button>
+                    <button class="pill-btn" data-filter="d" data-val="nearest">Ближайшие</button>
                 </div>
             </div>
         `;
@@ -35,7 +35,7 @@ export class FilterBar {
     }
 
     bindEvents() {
-        const buttons = this.container.querySelectorAll('.d-btn');
+        const buttons = this.container.querySelectorAll('.pill-btn');
         buttons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const target = e.currentTarget;
@@ -43,7 +43,7 @@ export class FilterBar {
                 const filterVal = target.getAttribute('data-val');
 
                 // Update UI state
-                target.parentElement.querySelectorAll('.d-btn').forEach(b => b.classList.remove('active'));
+                target.parentElement.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
                 target.classList.add('active');
 
                 // Update local state and trigger callback

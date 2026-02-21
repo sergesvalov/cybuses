@@ -19,7 +19,7 @@ export class BusCard {
             }
             const noteTxt = t.note_txt ? t.note_txt.replace(/"/g, '&quot;') : '';
             return `
-                <div class="t-btn ${noteTxt ? 'has-note' : ''}" 
+                <div class="t-btn ${noteTxt ? 'clickable has-note' : ''}" 
                      data-time="${t.t}" 
                      data-star="${t.n || ''}" 
                      data-note="${noteTxt}">
@@ -46,7 +46,9 @@ export class BusCard {
                     <span class="c-title">${safeTitle} ${dayBadge}</span>
                     <div class="c-desc">${safeDesc}</div>
                 </div>
-                <a href="${this.data.url}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:1.2rem;display:flex;">↗</a>
+                <a href="${this.data.url}" target="_blank" class="link-icon" aria-label="Open source">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>
             </div>
             <div class="times-grid">${timesHtml}</div>
         `;
