@@ -21,8 +21,8 @@ export class Modal {
     }
 
     show(time, stars, noteText) {
-        this.titleEl.innerText = time + stars;
-        this.noteEl.innerHTML = noteText;
+        this.titleEl.textContent = time + stars;
+        this.noteEl.textContent = noteText;
         this.modalEl.classList.add('show');
     }
 

@@ -15,8 +15,8 @@ async def update_task():
     cache_manager.set_updating(True)
     try:
         print(">>> Starting update task...")
-        data = await scraper_service.get_all_data()
-        cache_manager.update_cache(data)
+        data, has_errors = await scraper_service.get_all_data()
+        cache_manager.update_cache(data, has_errors)
     except Exception as e:
         print(f"Update failed: {e}")
     finally: 

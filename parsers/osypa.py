@@ -9,7 +9,7 @@ class OsypaParser(BaseParser):
 
         grouped_times = {}
         last_header = "Route Schedule"
-        all_elements = soup.find_all(text=True)
+        all_elements = soup.find_all(string=True)
 
         for text in all_elements:
             txt = text.strip()

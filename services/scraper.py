@@ -40,7 +40,7 @@ class ScraperService:
             return result
         except Exception as e:
             print(f"!!! Critical Error in {key}: {e}")
-            return []
+            return None # Return None to indicate failure
 
     async def get_all_data(self):
         start_time = time.time()
@@ -48,15 +48,24 @@ class ScraperService:
         # Используем одну сессию на все запросы
         async with aiohttp.ClientSession() as session:
             tasks = []
+            keys = []
             for key, info in ROUTES.items():
                 task = asyncio.create_task(self.fetch_route(session, key, info))
                 tasks.append(task)
+                keys.append(key)
             
             # Ждем выполнения всех задач
             results = await asyncio.gather(*tasks)
         
-        # Выпрямляем список списков
-        flat_data = [item for sublist in results for item in sublist]
+        # Выпрямляем список списков, игнорируя None (ошибки парсинга)
+        flat_data = []
+        parsing_errors = False
+        for res in results:
+            if res is None:
+                parsing_errors = True
+            else:
+                flat_data.extend(res)
         
+        # Возвращаем флаг ошибок вместе с данными, чтобы CacheManager знал
         print(f">>> Update finished in {time.time() - start_time:.2f} s. Total routes: {len(flat_data)}")
-        return flat_data
+        return flat_data, parsing_errors

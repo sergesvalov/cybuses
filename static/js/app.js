@@ -32,7 +32,10 @@ class BusApp {
     }
 
     getCurrentDayType() {
-        const day = new Date().getDay();
+        // Use Cyprus timezone for accurate day calculation
+        const cyprusTime = new Date().toLocaleString("en-US", { timeZone: "Asia/Nicosia" });
+        const cyprusDate = new Date(cyprusTime);
+        const day = cyprusDate.getDay();
         // 0 = Sunday, 6 = Saturday
         return (day === 0 || day === 6) ? 'weekend' : 'weekday';
     }

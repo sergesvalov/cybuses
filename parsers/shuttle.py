@@ -1,5 +1,6 @@
 import io
 import re
+import asyncio
 import pdfplumber
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -9,15 +10,12 @@ class ShuttleParser(BaseParser):
     async def parse(self, session, info):
         url = info['url']
         
-        # Если это прямая ссылка на PDF (Лимассол)
+        # Если это прямая ссылка на PDF (fallback на всякий случай)
         if url.lower().endswith('.pdf'):
             return await self.process_pdf(session, url, info)
 
-        # Если это Kapnos (поиск на странице)
-        elif "kapnos" in url:
-            return await self.find_and_parse_kapnos(session, info)
-
-        return self.fallback_link(info, "Unknown Provider")
+        # Если это Kapnos или Limassol (поиск PDF на странице)
+        return await self.find_and_parse_pdf_link(session, info)
 
     async def process_pdf(self, session, pdf_url, info):
         try:
@@ -28,8 +26,8 @@ class ShuttleParser(BaseParser):
             return self.fallback_link(info, f"Download Error: {e}")
 
         try:
-            # Вызываем улучшенный парсинг
-            results = self.extract_limassol_express_logic(pdf_bytes, pdf_url, info)
+            # Выполняем синхронный тяжелый парсинг в отдельном потоке
+            results = await asyncio.to_thread(self.extract_limassol_express_logic, pdf_bytes, pdf_url, info)
             return results if results else self.fallback_link(info, "No data extracted")
         except Exception as e:
             print(f"PDF Error: {e}")
@@ -141,9 +139,8 @@ class ShuttleParser(BaseParser):
                     })
         return raw_results
 
-    async def find_and_parse_kapnos(self, session, info):
-        # Логика для Капноса остается аналогичной, но использует 
-        # тот же улучшенный метод валидации времени
+    async def find_and_parse_pdf_link(self, session, info):
+        """Ищет ссылку на PDF на сайте провайдера и парсит первый найденный PDF."""
         base_url = info['url']
         try:
             async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
@@ -152,8 +149,20 @@ class ShuttleParser(BaseParser):
             pdf_link = None
             for a in soup.find_all('a', href=True):
                 if '.pdf' in a['href'].lower():
+                    # Для Limassol ищем именно Paphos-Itinerary, но если просто .pdf — сойдет
+                    if "limassol" in base_url and "paphos" not in a['href'].lower() and "larnaca" not in a['href'].lower():
+                        continue # Skip non-relevant pdfs if any
                     pdf_link = urljoin(base_url, a['href'])
                     break
+            
+            # Фоллбэк если условие сработало слишком строго (например для лимассола только Paphos, а вдруг там переименовали)
+            if not pdf_link:
+                # Берем первый попавшийся PDF если строгий критерий не нашел
+                for a in soup.find_all('a', href=True):
+                    if '.pdf' in a['href'].lower():
+                        pdf_link = urljoin(base_url, a['href'])
+                        break
+
             if pdf_link:
                 return await self.process_pdf(session, pdf_link, info)
         except: pass
@@ -162,6 +171,6 @@ class ShuttleParser(BaseParser):
     def fallback_link(self, info, reason):
         return [{
             "name": info['name'], "desc": f"External Link ({reason})", "type": "all", 
-            "times": [{"t": "LINK", "n": "", "f": "Открыть расписание ↗", "url": info['url']}], 
+            "times": [{"t": "LINK", "n": "", "f": "Открыть сайт ↗", "url": info['url']}], 
             "url": info['url'], "prov": info['provider'], "notes": {}
         }]

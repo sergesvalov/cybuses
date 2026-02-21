@@ -22,19 +22,34 @@ class CacheManager:
         else:
             print(">>> No cache file found on disk.")
 
-    def update_cache(self, data):
+    def update_cache(self, data, has_errors=False):
         """Updates the memory and disk caches with new data."""
         if not data:
             print(">>> Update returned empty data. Keeping old cache.")
             return
 
-        self._memory_cache = data
+        if has_errors and self._memory_cache:
+            print(">>> Parsers encountered errors. Merging successful results with old cache.")
+            # Map old cache by unique key to preserve it
+            old_routes = {(r['prov'], r['name'], r['desc']): r for r in self._memory_cache}
+            
+            # Override with successful new pulls
+            for new_r in data:
+                old_routes[(new_r['prov'], new_r['name'], new_r['desc'])] = new_r
+                
+            merged_data = list(old_routes.values())
+            self._memory_cache = merged_data
+            data_to_save = merged_data
+        else:
+            self._memory_cache = data
+            data_to_save = data
+            
         try:
             tmp = CACHE_FILE + ".tmp"
             with open(tmp, 'w', encoding='utf-8') as f: 
-                json.dump(data, f, ensure_ascii=False, indent=2)
+                json.dump(data_to_save, f, ensure_ascii=False, indent=2)
             os.replace(tmp, CACHE_FILE)
-            print(f">>> Cache Updated Successfully. Routes: {len(data)}")
+            print(f">>> Cache Updated Successfully. Routes: {len(data_to_save)}")
         except Exception as e:
             print(f"Error saving cache to disk: {e}")
 

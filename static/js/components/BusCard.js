@@ -27,11 +27,24 @@ export class BusCard {
                 </div>`;
         }).join('');
 
+        const escapeHtml = (unsafe) => {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        const safeTitle = escapeHtml(this.data.name);
+        const safeDesc = escapeHtml(this.data.desc);
+
         card.innerHTML = `
             <div class="c-head">
                 <div>
-                    <span class="c-title">${this.data.name} ${dayBadge}</span>
-                    <div class="c-desc">${this.data.desc}</div>
+                    <span class="c-title">${safeTitle} ${dayBadge}</span>
+                    <div class="c-desc">${safeDesc}</div>
                 </div>
                 <a href="${this.data.url}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:1.2rem;display:flex;">↗</a>
             </div>

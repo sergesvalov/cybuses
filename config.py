@@ -76,10 +76,10 @@ ROUTES = {
         "target": "airport", 
         "provider": "shuttle"
     },
-    # Прямая ссылка на PDF расписание Limassol Airport Express
+    # Парсер найдет PDF на главной странице
     "limassol_airport": {
         "name": "Limassol Airport Express", 
-        "url": "https://limassolairportexpress.eu/wp-content/uploads/2025/11/Paphos-Itinerary-01-12-2025.pdf", 
+        "url": "https://limassolairportexpress.eu/", 
         "target": "airport", 
         "provider": "shuttle"
     }
