@@ -140,28 +140,28 @@ class ShuttleParser(BaseParser):
         return raw_results
 
     async def find_and_parse_pdf_link(self, session, info):
-        """Ищет ссылку на PDF на сайте провайдера и парсит первый найденный PDF."""
+        """Ищет ссылку на PDF на сайте провайдера и парсит первый подходящий PDF."""
         base_url = info['url']
         try:
             async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
                 html = await r.text()
             soup = BeautifulSoup(html, 'html.parser')
-            pdf_link = None
-            for a in soup.find_all('a', href=True):
-                if '.pdf' in a['href'].lower():
-                    # Для Limassol ищем именно Paphos-Itinerary, но если просто .pdf — сойдет
-                    if "limassol" in base_url and "paphos" not in a['href'].lower() and "larnaca" not in a['href'].lower():
-                        continue # Skip non-relevant pdfs if any
-                    pdf_link = urljoin(base_url, a['href'])
-                    break
+            pdf_links = []
             
-            # Фоллбэк если условие сработало слишком строго (например для лимассола только Paphos, а вдруг там переименовали)
-            if not pdf_link:
-                # Берем первый попавшийся PDF если строгий критерий не нашел
-                for a in soup.find_all('a', href=True):
-                    if '.pdf' in a['href'].lower():
-                        pdf_link = urljoin(base_url, a['href'])
-                        break
+            for a in soup.find_all('a', href=True):
+                href = a['href'].lower()
+                if '.pdf' in href:
+                    pdf_links.append(urljoin(base_url, a['href']))
+            
+            pdf_link = None
+            if "limassol" in base_url:
+                # Для Лимассол экспресса нам нужен рейс в Пафос. Берем последний актуальный добавленный.
+                paphos_links = [l for l in pdf_links if 'paphos' in l.lower()]
+                if paphos_links:
+                    pdf_link = paphos_links[-1] # usually the latest one if there are multiple
+            else:
+                if pdf_links:
+                    pdf_link = pdf_links[0]
 
             if pdf_link:
                 return await self.process_pdf(session, pdf_link, info)

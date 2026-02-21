@@ -76,10 +76,10 @@ ROUTES = {
         "target": "airport", 
         "provider": "shuttle"
     },
-    # Парсер найдет PDF на главной странице
+    # Парсер найдет PDF на странице расписаний
     "limassol_airport": {
         "name": "Limassol Airport Express", 
-        "url": "https://limassolairportexpress.eu/", 
+        "url": "https://limassolairportexpress.eu/?page_id=280", 
         "target": "airport", 
         "provider": "shuttle"
     }
