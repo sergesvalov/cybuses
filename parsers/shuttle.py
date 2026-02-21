@@ -40,8 +40,8 @@ class ShuttleParser(BaseParser):
         
         WEEKDAY_MARKERS = ["δευτέρα", "παρασκευή", "monday", "friday", "mon-fri", "mon", "fri"]
         WEEKEND_MARKERS = ["σάββατο", "κυριακή", "saturday", "sunday", "sat-sun", "sat & sun", "sat", "sun"]
-        LIM_MARKERS = ["λεμεσό", "limassol"]
-        AIR_MARKERS = ["αεροδρόμιο", "airport"]
+        LIM_MARKERS = ["από λεμεσό", "απο λεμεσο", "from limassol", "αναχωρησεις απο λεμεσο", "αναχωρήσεις από λεμεσό", "limassol departures"]
+        AIR_MARKERS = ["από αεροδρόμιο", "απο αεροδρομιο", "from airport", "from paphos", "from larnaca", "αναχωρησεις απο αεροδρομιο", "αναχωρήσεις από αεροδρόμιο", "airport departures", "από αεροδρόμιο πάφου", "από αεροδρόμιο λάρνακας", "from paphos airport", "from larnaca airport"]
         
         schedule = {
             "weekday": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []},
