@@ -28,16 +28,23 @@ class IntercityParser(BaseParser):
         tags = soup.find_all(['h2', 'h3', 'h4', 'strong', 'b', 'p', 'td', 'span', 'li', 'div'])
         
         for tag in tags:
-            txt = tag.get_text(" ", strip=True).lower()
-            
-            is_from_paphos = ("from paphos" in txt or "from pafos" in txt or 
-                              f"paphos - {target}" in txt or f"pafos - {target}" in txt)
-            is_to_paphos = (f"from {target}" in txt or 
-                            f"{target} - paphos" in txt or f"{target} - pafos" in txt)
+            # Предотвращаем чтение крупных div-оберток (иначе смешиваются табы с расписанием)
+            if tag.name == 'div' and tag.find(['div', 'p', 'table', 'ul', 'h2', 'h3']):
+                continue
 
-            if is_from_paphos and len(txt) < 100:
+            txt = tag.get_text(" ", strip=True).lower()
+            norm_txt = txt.replace("–", "-").replace("—", "-")
+            
+            is_from_paphos = ("from paphos" in norm_txt or "from pafos" in norm_txt or 
+                              f"paphos - {target}" in norm_txt or f"pafos - {target}" in norm_txt or
+                              f"paphos-{target}" in norm_txt)
+            is_to_paphos = (f"from {target}" in norm_txt or 
+                            f"{target} - paphos" in norm_txt or f"{target} - pafos" in norm_txt or
+                            f"{target}-paphos" in norm_txt)
+
+            if is_from_paphos and not is_to_paphos and len(txt) < 100:
                 current_dir = "from_paphos"; continue
-            if is_to_paphos and len(txt) < 100:
+            if is_to_paphos and not is_from_paphos and len(txt) < 100:
                 current_dir = "to_paphos"; continue
             
             if current_dir:
