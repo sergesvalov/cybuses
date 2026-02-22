@@ -26,13 +26,6 @@ export class FilterBar {
                     <button class="pill-btn active" data-filter="d" data-val="auto">Авто</button>
                     <button class="pill-btn" data-filter="d" data-val="weekday">Будни</button>
                     <button class="pill-btn" data-filter="d" data-val="weekend">Выходные</button>
-                    <button class="pill-btn" data-filter="d" data-val="monday">Пн</button>
-                    <button class="pill-btn" data-filter="d" data-val="tuesday">Вт</button>
-                    <button class="pill-btn" data-filter="d" data-val="wednesday">Ср</button>
-                    <button class="pill-btn" data-filter="d" data-val="thursday">Чт</button>
-                    <button class="pill-btn" data-filter="d" data-val="friday">Пт</button>
-                    <button class="pill-btn" data-filter="d" data-val="saturday">Сб</button>
-                    <button class="pill-btn" data-filter="d" data-val="sunday">Вс</button>
                     <button class="pill-btn" data-filter="d" data-val="nearest">Ближайшие</button>
                 </div>
             </div>
