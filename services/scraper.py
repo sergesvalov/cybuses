@@ -30,17 +30,34 @@ class ScraperService:
 
         print(f"[{provider_key.upper()}] Fetching: {info['name']}...")
         try:
-            # Запускаем парсинг
             result = await parser.parse(session, info)
             
-            # Если вернулся пустой список, можно вывести предупреждение
             if not result:
                 print(f"Warning: No data found for {info['name']}")
+                return [{
+                    "name": info['name'],
+                    "desc": "Сбой загрузки расписания",
+                    "type": "all",
+                    "times": [],
+                    "url": info['url'],
+                    "prov": provider_key,
+                    "hasError": True,
+                    "errorMsg": "Временно недоступно (нет данных)"
+                }]
                 
             return result
         except Exception as e:
             print(f"!!! Critical Error in {key}: {e}")
-            return None # Return None to indicate failure
+            return [{
+                "name": info['name'],
+                "desc": "Сбой загрузки расписания",
+                "type": "all",
+                "times": [],
+                "url": info['url'],
+                "prov": provider_key,
+                "hasError": True,
+                "errorMsg": f"Ошибка связи ({type(e).__name__})"
+            }]
 
     async def get_all_data(self):
         start_time = time.time()

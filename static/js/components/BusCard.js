@@ -59,6 +59,11 @@ export class BusCard {
         const favKey = `${this.data.prov}_${this.data.name}_${this.data.desc}`;
         const isFav = this.data.isFav ? 'active' : '';
 
+        // Error Banner
+        const errorHtml = this.data.hasError
+            ? `<div class="c-error-banner">⚠️ ${escapeHtml(this.data.errorMsg)}</div>`
+            : '';
+
         card.innerHTML = `
             <div class="c-head">
                 <div>
@@ -78,6 +83,7 @@ export class BusCard {
                     </a>
                 </div>
             </div>
+            ${errorHtml}
             <div class="c-times">${timesHtml}</div>
         `;
 
