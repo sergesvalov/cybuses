@@ -6,13 +6,19 @@ class IntercityParser(BaseParser):
         notes = {}
         tags = soup.find_all(['p', 'div', 'span', 'li', 'td'])
         for tag in tags:
-            txt = tag.get_text(" ", strip=True)
-            match = re.match(r'^(\*+)\s+(.+)', txt)
-            if match:
-                key = match.group(1)
-                value = match.group(2)
-                if len(value) > 3:
-                    notes[key] = value
+            text_blocks = tag.get_text("\n", strip=True).split("\n")
+            for txt in text_blocks:
+                txt = txt.strip()
+                match = re.match(r'^(\*+)\s*(.+)', txt)
+                if match:
+                    key = match.group(1)
+                    value = match.group(2)
+                    if len(value) > 3:
+                        if key in notes:
+                            if value not in notes[key]: # Prevent duplicate appended notes
+                                notes[key] += " " + value
+                        else:
+                            notes[key] = value
         return notes
 
     async def parse(self, session, info):
