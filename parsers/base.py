@@ -7,6 +7,8 @@ class BaseParser:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
     }
+    
+    TIME_REGEX = re.compile(r'(\d{1,2}[:.]\d{2})([\*]*)')
 
     async def get_soup(self, session: aiohttp.ClientSession, url: str):
         try:
@@ -24,4 +26,4 @@ class BaseParser:
         return t_str
 
     def extract_times(self, text):
-        return re.findall(r'(\d{1,2}[:.]\d{2})([\*]*)', text)
+        return self.TIME_REGEX.findall(text)

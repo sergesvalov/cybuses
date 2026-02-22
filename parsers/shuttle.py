@@ -10,12 +10,11 @@ class ShuttleParser(BaseParser):
     async def parse(self, session, info):
         url = info['url']
         
-        # Если это прямая ссылка на PDF (fallback на всякий случай)
+        # All our shuttle targets currently use direct PDF links
         if url.lower().endswith('.pdf'):
             return await self.process_pdf(session, url, info)
 
-        # Если это Kapnos или Limassol (поиск PDF на странице)
-        return await self.find_and_parse_pdf_link(session, info)
+        return self.fallback_link(info, "No valid PDF link configured")
 
     async def process_pdf(self, session, pdf_url, info):
         try:
@@ -37,10 +36,7 @@ class ShuttleParser(BaseParser):
         raw_results = []
         
         DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        schedule = {
-            d: {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []} 
-            for d in DAYS
-        }
+        schedule = { d: [] for d in DAYS }
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
@@ -62,77 +58,32 @@ class ShuttleParser(BaseParser):
                     limassol_col = day_idx * 2
                     airport_col = limassol_col + 1
                     
-                    if times_row[limassol_col]:
-                        for t_str, stars in self.extract_times(times_row[limassol_col]):
-                            nt = self.normalize_time(t_str)
-                            if ":" in nt:
-                                h, m = map(int, nt.split(':'))
-                                if 0 <= h <= 23 and 0 <= m <= 59:
-                                    if not any(x['t'] == nt for x in schedule[day_type]["Larnaca Airport ➝ Paphos Airport"]):
-                                        schedule[day_type]["Larnaca Airport ➝ Paphos Airport"].append({
-                                            "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
-                                        })
-                    
                     if times_row[airport_col]:
                         for t_str, stars in self.extract_times(times_row[airport_col]):
                             nt = self.normalize_time(t_str)
                             if ":" in nt:
                                 h, m = map(int, nt.split(':'))
                                 if 0 <= h <= 23 and 0 <= m <= 59:
-                                    if not any(x['t'] == nt for x in schedule[day_type]["Paphos Airport ➝ Larnaca Airport"]):
-                                        schedule[day_type]["Paphos Airport ➝ Larnaca Airport"].append({
+                                    if not any(x['t'] == nt for x in schedule[day_type]):
+                                        schedule[day_type].append({
                                             "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
                                         })
 
         # Format output
         for d_type in DAYS:
-            for direct, t_list in schedule[d_type].items():
-                if t_list:
-                    # User explicitly requested: "нас интересует только From Paphos Airport"
-                    if direct == "Paphos Airport ➝ Larnaca Airport":
-                        pass # Valid, keep it
-                    else:
-                        continue
-                    
-                    t_list.sort(key=lambda x: x['t'])
-                    raw_results.append({
-                        "name": info['name'],
-                        "desc": direct,
-                        "type": d_type,
-                        "times": t_list,
-                        "url": pdf_url,
-                        "prov": info['provider'],
-                        "notes": {}
-                    })
+            t_list = schedule[d_type]
+            if t_list:
+                t_list.sort(key=lambda x: x['t'])
+                raw_results.append({
+                    "name": info['name'],
+                    "desc": "Paphos Airport ➝ Larnaca Airport",
+                    "type": d_type,
+                    "times": t_list,
+                    "url": pdf_url,
+                    "prov": info['provider'],
+                    "notes": {}
+                })
         return raw_results
-    async def find_and_parse_pdf_link(self, session, info):
-        """Ищет ссылку на PDF на сайте провайдера и парсит первый подходящий PDF."""
-        base_url = info['url']
-        try:
-            async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
-                html = await r.text()
-            soup = BeautifulSoup(html, 'html.parser')
-            pdf_links = []
-            
-            for a in soup.find_all('a', href=True):
-                href = a['href'].lower()
-                if '.pdf' in href:
-                    pdf_links.append(urljoin(base_url, a['href']))
-            
-            pdf_link = None
-            if "limassol" in base_url:
-                # Для Лимассол экспресса нам нужен рейс в Пафос. Берем последний актуальный добавленный.
-                paphos_links = [l for l in pdf_links if 'paphos' in l.lower()]
-                if paphos_links:
-                    pdf_link = paphos_links[-1] # usually the latest one if there are multiple
-            else:
-                if pdf_links:
-                    pdf_link = pdf_links[0]
-
-            if pdf_link:
-                return await self.process_pdf(session, pdf_link, info)
-        except: pass
-        return self.fallback_link(info, "PDF not found")
 
     def fallback_link(self, info, reason):
         return [{
