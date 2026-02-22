@@ -26,6 +26,15 @@ class IntercityParser(BaseParser):
         soup = await self.get_soup(session, info['url'])
         if not soup: return []
         
+        # 1. Попытка вытащить цену (ищем первую попавшуюся сумму с евро)
+        price_text = None
+        for txt in soup.stripped_strings:
+            if '€' in txt:
+                match = re.search(r'€\s*\d+[.,]?\d*', txt)
+                if match:
+                    price_text = match.group(0)
+                    break
+
         footnotes_map = self.extract_footnotes(soup)
         target = info['target']
         blocks = { "from_paphos": [], "to_paphos": [] }
@@ -89,6 +98,7 @@ class IntercityParser(BaseParser):
 
             results.append({
                 "name": info['name'], "desc": dir_titles[d_key], "type": "all",
-                "times": final_list, "url": info['url'], "prov": "intercity", "notes": footnotes_map 
+                "times": final_list, "url": info['url'], "prov": "intercity", "notes": footnotes_map,
+                "price": price_text
             })
         return results
