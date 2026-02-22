@@ -13,7 +13,7 @@ class OsypaParser(BaseParser):
 
         for text in all_elements:
             txt = text.strip()
-            if not txt or len(txt) > 200: continue
+            if not txt or len(txt) > 800: continue
             
             lower = txt.lower()
             has_time = re.search(r'\d{1,2}[:.]\d{2}', txt)
