@@ -8,6 +8,9 @@ class BusApp {
         this.data = [];
         this.appEl = document.getElementById('app');
         this.refreshBtn = document.getElementById('r-btn');
+        this.searchInput = document.getElementById('route-search');
+        this.searchQuery = '';
+        this.favorites = JSON.parse(localStorage.getItem('cybuses_favs') || '[]');
 
         // Initialize Components
         this.modal = new Modal('modal');
@@ -23,8 +26,22 @@ class BusApp {
         this.filterBar.render();
 
         // Refresh button logic
-        this.refreshBtn.addEventListener('click', () => {
-            this.refresh();
+        this.refreshBtn.addEventListener('click', async () => {
+            this.refreshBtn.classList.add('loading');
+            try {
+                await Api.refreshData();
+                await this.load();
+            } catch (e) {
+                console.error("Refresh failed", e);
+            } finally {
+                this.refreshBtn.classList.remove('loading');
+            }
+        });
+
+        // Search input logic
+        this.searchInput.addEventListener('input', (e) => {
+            this.searchQuery = e.target.value.toLowerCase().trim();
+            this.render();
         });
 
         // Initialize polling for time highlighting
@@ -61,6 +78,13 @@ class BusApp {
         const currentDayName = dayNames[new Date().getDay()];
 
         const fData = this.data.reduce((acc, route) => {
+            // Text Search Check
+            const q = this.searchQuery;
+            if (q) {
+                const searchStr = `${route.name} ${route.desc}`.toLowerCase();
+                if (!searchStr.includes(q)) return acc;
+            }
+
             const matchProv = (state.p === 'all' || route.prov === state.p);
 
             let matchDay = false;
@@ -91,9 +115,9 @@ class BusApp {
                 const now = new Date();
                 const curMins = now.getHours() * 60 + now.getMinutes();
 
-                const filteredTimes = route.times.filter(t => {
+                const filteredTimes = route.times.map(t => {
                     const txt = (t.t || "").replace(/[^\d:]/g, '');
-                    if (!txt) return false;
+                    if (!txt) return null;
                     const [h, m] = txt.split(':').map(Number);
                     let busMins = h * 60 + m;
 
@@ -104,8 +128,11 @@ class BusApp {
                     if (effectiveCur < 180) effectiveCur += 1440;
 
                     const diff = effectiveBus - effectiveCur;
-                    return diff >= 30 && diff <= 120;
-                });
+                    if (diff >= 30 && diff <= 120) {
+                        return { ...t, diffMins: diff };
+                    }
+                    return null;
+                }).filter(Boolean);
 
                 if (filteredTimes.length > 0) {
                     acc.push({ ...route, times: filteredTimes });
@@ -116,12 +143,25 @@ class BusApp {
             return acc;
         }, []);
 
+        // Sort Data: Favorites first
+        fData.sort((a, b) => {
+            const getFavKey = (r) => `${r.prov}_${r.name}_${r.desc}`;
+            const keyA = getFavKey(a);
+            const keyB = getFavKey(b);
+            const favA = this.favorites.includes(keyA) ? 1 : 0;
+            const favB = this.favorites.includes(keyB) ? 1 : 0;
+            return favB - favA;
+        });
+
         if (!fData.length) {
             this.appEl.innerHTML = '<div class="loader">Рейсов не найдено</div>';
             return;
         }
 
         fData.forEach(r => {
+            const favKey = `${r.prov}_${r.name}_${r.desc}`;
+            r.isFav = this.favorites.includes(favKey);
+
             const cardComponent = new BusCard(r, (time, stars, note) => {
                 this.modal.show(time, stars, note);
             });
@@ -131,6 +171,22 @@ class BusApp {
 
         // Compute highlighting strictly after DOM insertion
         this.highlightNext();
+        this.bindCardEvents();
+    }
+
+    bindCardEvents() {
+        this.appEl.querySelectorAll('.fav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const key = btn.dataset.key;
+                if (this.favorites.includes(key)) {
+                    this.favorites = this.favorites.filter(k => k !== key);
+                } else {
+                    this.favorites.push(key);
+                }
+                localStorage.setItem('cybuses_favs', JSON.stringify(this.favorites));
+                this.render(); // Re-render to apply sort and icon changes
+            });
+        });
     }
 
     highlightNext() {

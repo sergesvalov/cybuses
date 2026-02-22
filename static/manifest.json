@@ -1,0 +1,16 @@
+{
+    "name": "Автобусы Пафоса",
+    "short_name": "CyBuses",
+    "description": "Сводное расписание кипрских автобусов",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0b0c10",
+    "theme_color": "#1f2833",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzFmMjgzMyIvPjx0ZXh0IHk9IjUwIiB4PSI1MCIgZm9udS1zaXplPSI1MCIgZmlsbD0iI2ZmZiIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+ajDwvdGV4dD48L3N2Zz4=",
+            "sizes": "192x192 512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}
