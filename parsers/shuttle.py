@@ -36,97 +36,63 @@ class ShuttleParser(BaseParser):
     def extract_limassol_express_logic(self, pdf_bytes, pdf_url, info):
         raw_results = []
         
-        WEEKDAY_MARKERS = ["δευτέρα", "παρασκευή", "monday", "friday", "mon-fri", "mon", "fri"]
-        WEEKEND_MARKERS = ["σάββατο", "κυριακή", "saturday", "sunday", "sat-sun", "sat & sun", "sat", "sun"]
-        LIM_MARKERS = ["από λεμεσό", "απο λεμεσο", "from limassol", "αναχωρησεις απο λεμεσο", "αναχωρήσεις από λεμεσό", "limassol departures"]
-        AIR_MARKERS = ["από αεροδρόμιο", "απο αεροδρομιο", "from airport", "from paphos", "from larnaca", "αναχωρησεις απο αεροδρομιο", "αναχωρήσεις από αεροδρόμιο", "airport departures", "από αεροδρόμιο πάφου", "από αεροδρόμιο λάρνακας", "from paphos airport", "from larnaca airport"]
-        
         schedule = {
-            "weekday": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []},
-            "weekend": {"Limassol ➝ Airport": [], "Airport ➝ Limassol": []}
+            "weekday": {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []},
+            "weekend": {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []}
         }
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            current_day_type = "weekday"
-            col_dirs = {"left": "Limassol ➝ Airport", "right": "Airport ➝ Limassol"}
-                
             for page in pdf.pages:
-                page_mid = page.width / 2
-                words = page.extract_words()
+                table = page.extract_table()
+                if not table:
+                    continue
                 
-                # Group words into lines
-                words.sort(key=lambda w: (w['top'], w['x0']))
+                # We expect the times to be in the last row of the table
+                times_row = table[-1]
+                if len(times_row) < 14:
+                    continue
                 
-                lines = []
-                for w in words:
-                    added = False
-                    if lines:
-                        last_line = lines[-1]
-                        if abs(last_line['top'] - w['top']) <= 5:
-                            last_line['words'].append(w)
-                            last_line['text'] += " " + w['text']
-                            added = True
-                    if not added:
-                        lines.append({
-                            'top': w['top'],
-                            'words': [w],
-                            'text': w['text']
-                        })
-
-                for line in lines:
-                    low_text = line['text'].lower()
-
-                    # 1. Detect Day Type
-                    if any(m in low_text for m in WEEKEND_MARKERS):
-                        current_day_type = "weekend"
-                    elif any(m in low_text for m in WEEKDAY_MARKERS):
-                        current_day_type = "weekday"
-
-                    # 2. Split words into left and right halves
-                    left_words = [w for w in line['words'] if w['x0'] < page_mid]
-                    right_words = [w for w in line['words'] if w['x0'] >= page_mid]
+                # Days 0-4 are Monday-Friday (weekday)
+                # Days 5-6 are Saturday-Sunday (weekend)
+                
+                for day_idx in range(7):
+                    day_type = "weekend" if day_idx >= 5 else "weekday"
                     
-                    left_txt = " ".join([w['text'] for w in left_words]).lower()
-                    right_txt = " ".join([w['text'] for w in right_words]).lower()
-
-                    # 3. Detect column direction headers
-                    if any(m in left_txt for m in LIM_MARKERS):
-                        col_dirs["left"] = "Limassol ➝ Airport"
-                    elif any(m in left_txt for m in AIR_MARKERS):
-                        col_dirs["left"] = "Airport ➝ Limassol"
-                        
-                    if any(m in right_txt for m in LIM_MARKERS):
-                        col_dirs["right"] = "Limassol ➝ Airport"
-                    elif any(m in right_txt for m in AIR_MARKERS):
-                        col_dirs["right"] = "Airport ➝ Limassol"
-
-                    # 4. Extract times and push to corresponding column
-                    for t_str, stars in self.extract_times(left_txt):
-                        nt = self.normalize_time(t_str)
-                        if ":" in nt:
-                            h, m = map(int, nt.split(':'))
-                            if 0 <= h <= 23 and 0 <= m <= 59:
-                                d = col_dirs["left"]
-                                if not any(x['t'] == nt for x in schedule[current_day_type][d]):
-                                    schedule[current_day_type][d].append({
-                                        "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
-                                    })
-                                    
-                    for t_str, stars in self.extract_times(right_txt):
-                        nt = self.normalize_time(t_str)
-                        if ":" in nt:
-                            h, m = map(int, nt.split(':'))
-                            if 0 <= h <= 23 and 0 <= m <= 59:
-                                d = col_dirs["right"]
-                                if not any(x['t'] == nt for x in schedule[current_day_type][d]):
-                                    schedule[current_day_type][d].append({
-                                        "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
-                                    })
+                    limassol_col = day_idx * 2
+                    airport_col = limassol_col + 1
+                    
+                    if times_row[limassol_col]:
+                        for t_str, stars in self.extract_times(times_row[limassol_col]):
+                            nt = self.normalize_time(t_str)
+                            if ":" in nt:
+                                h, m = map(int, nt.split(':'))
+                                if 0 <= h <= 23 and 0 <= m <= 59:
+                                    if not any(x['t'] == nt for x in schedule[day_type]["Larnaca Airport ➝ Paphos Airport"]):
+                                        schedule[day_type]["Larnaca Airport ➝ Paphos Airport"].append({
+                                            "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
+                                        })
+                    
+                    if times_row[airport_col]:
+                        for t_str, stars in self.extract_times(times_row[airport_col]):
+                            nt = self.normalize_time(t_str)
+                            if ":" in nt:
+                                h, m = map(int, nt.split(':'))
+                                if 0 <= h <= 23 and 0 <= m <= 59:
+                                    if not any(x['t'] == nt for x in schedule[day_type]["Paphos Airport ➝ Larnaca Airport"]):
+                                        schedule[day_type]["Paphos Airport ➝ Larnaca Airport"].append({
+                                            "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
+                                        })
 
         # Format output
         for d_type in ["weekday", "weekend"]:
             for direct, t_list in schedule[d_type].items():
                 if t_list:
+                    # User explicitly requested: "нас интересует только From Paphos Airport"
+                    if direct == "Paphos Airport ➝ Larnaca Airport":
+                        pass # Valid, keep it
+                    else:
+                        continue
+                    
                     t_list.sort(key=lambda x: x['t'])
                     raw_results.append({
                         "name": info['name'],
@@ -138,7 +104,6 @@ class ShuttleParser(BaseParser):
                         "notes": {}
                     })
         return raw_results
-
     async def find_and_parse_pdf_link(self, session, info):
         """Ищет ссылку на PDF на сайте провайдера и парсит первый подходящий PDF."""
         base_url = info['url']
