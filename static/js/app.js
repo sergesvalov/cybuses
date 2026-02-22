@@ -64,18 +64,24 @@ class BusApp {
             const matchProv = (state.p === 'all' || route.prov === state.p);
 
             let matchDay = false;
+            const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+            const weekends = ['saturday', 'sunday'];
+
             if (route.type === 'all') {
                 matchDay = true;
-            } else if (['weekday', 'weekend'].includes(route.type)) {
-                matchDay = (route.type === activeDayType);
             } else {
-                // Route is an explicit day (e.g., 'monday')
-                if (state.d === 'auto' || state.d === 'nearest') {
-                    matchDay = (route.type === currentDayName);
-                } else if (state.d === 'weekday') {
-                    matchDay = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(route.type);
-                } else if (state.d === 'weekend') {
-                    matchDay = ['saturday', 'sunday'].includes(route.type);
+                if (activeDayType === 'weekday') {
+                    matchDay = (route.type === 'weekday' || weekdays.includes(route.type));
+                } else if (activeDayType === 'weekend') {
+                    matchDay = (route.type === 'weekend' || weekends.includes(route.type));
+                } else if (dayNames.includes(activeDayType)) {
+                    if (route.type === activeDayType) {
+                        matchDay = true;
+                    } else if (route.type === 'weekday' && weekdays.includes(activeDayType)) {
+                        matchDay = true;
+                    } else if (route.type === 'weekend' && weekends.includes(activeDayType)) {
+                        matchDay = true;
+                    }
                 }
             }
 
