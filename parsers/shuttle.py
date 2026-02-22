@@ -10,11 +10,12 @@ class ShuttleParser(BaseParser):
     async def parse(self, session, info):
         url = info['url']
         
-        # All our shuttle targets currently use direct PDF links
+        # Если это прямая ссылка на PDF (fallback на всякий случай)
         if url.lower().endswith('.pdf'):
             return await self.process_pdf(session, url, info)
 
-        return self.fallback_link(info, "No valid PDF link configured")
+        # Если это Kapnos или Limassol (поиск PDF на странице)
+        return await self.find_and_parse_pdf_link(session, info)
 
     async def process_pdf(self, session, pdf_url, info):
         try:
@@ -84,6 +85,37 @@ class ShuttleParser(BaseParser):
                     "notes": {}
                 })
         return raw_results
+
+    async def find_and_parse_pdf_link(self, session, info):
+        """Ищет ссылку на PDF на сайте провайдера и парсит первый подходящий PDF."""
+        base_url = info['url']
+        try:
+            async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
+                html = await r.text()
+            from bs4 import BeautifulSoup
+            from urllib.parse import urljoin
+            soup = BeautifulSoup(html, 'html.parser')
+            pdf_links = []
+            
+            for a in soup.find_all('a', href=True):
+                href = a['href'].lower()
+                if '.pdf' in href:
+                    pdf_links.append(urljoin(base_url, a['href']))
+            
+            pdf_link = None
+            if "limassol" in base_url:
+                # Для Лимассол экспресса нам нужен рейс в Пафос. Берем последний актуальный добавленный.
+                paphos_links = [l for l in pdf_links if 'paphos' in l.lower()]
+                if paphos_links:
+                    pdf_link = paphos_links[-1] # usually the latest one if there are multiple
+            else:
+                if pdf_links:
+                    pdf_link = pdf_links[0]
+
+            if pdf_link:
+                return await self.process_pdf(session, pdf_link, info)
+        except: pass
+        return self.fallback_link(info, "PDF not found")
 
     def fallback_link(self, info, reason):
         return [{
