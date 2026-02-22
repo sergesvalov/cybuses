@@ -57,9 +57,27 @@ class BusApp {
         const state = this.filterBar.getState();
         const activeDayType = state.d === 'auto' || state.d === 'nearest' ? this.getCurrentDayType() : state.d;
 
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDayName = dayNames[new Date().getDay()];
+
         const fData = this.data.reduce((acc, route) => {
             const matchProv = (state.p === 'all' || route.prov === state.p);
-            const matchDay = (route.type === 'all' || route.type === activeDayType);
+
+            let matchDay = false;
+            if (route.type === 'all') {
+                matchDay = true;
+            } else if (['weekday', 'weekend'].includes(route.type)) {
+                matchDay = (route.type === activeDayType);
+            } else {
+                // Route is an explicit day (e.g., 'monday')
+                if (state.d === 'auto' || state.d === 'nearest') {
+                    matchDay = (route.type === currentDayName);
+                } else if (state.d === 'weekday') {
+                    matchDay = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(route.type);
+                } else if (state.d === 'weekend') {
+                    matchDay = ['saturday', 'sunday'].includes(route.type);
+                }
+            }
 
             if (!matchProv || !matchDay) return acc;
 

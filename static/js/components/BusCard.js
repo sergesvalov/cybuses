@@ -8,8 +8,20 @@ export class BusCard {
         const card = document.createElement('div');
         card.className = 'card';
 
+        const dayMap = {
+            'weekday': 'Будни',
+            'weekend': 'Сб/Вс',
+            'monday': 'Пн',
+            'tuesday': 'Вт',
+            'wednesday': 'Ср',
+            'thursday': 'Чт',
+            'friday': 'Пт',
+            'saturday': 'Сб',
+            'sunday': 'Вс',
+            'all': ''
+        };
         const dayBadge = this.data.type !== 'all'
-            ? `<span class="day-badge">${this.data.type === 'weekday' ? 'Будни' : 'Сб/Вс'}</span>`
+            ? `<span class="day-badge">${dayMap[this.data.type] || this.data.type}</span>`
             : '';
 
         const timesHtml = this.data.times.map(t => {

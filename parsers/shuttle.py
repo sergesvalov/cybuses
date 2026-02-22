@@ -36,9 +36,10 @@ class ShuttleParser(BaseParser):
     def extract_limassol_express_logic(self, pdf_bytes, pdf_url, info):
         raw_results = []
         
+        DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         schedule = {
-            "weekday": {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []},
-            "weekend": {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []}
+            d: {"Larnaca Airport ➝ Paphos Airport": [], "Paphos Airport ➝ Larnaca Airport": []} 
+            for d in DAYS
         }
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -52,11 +53,11 @@ class ShuttleParser(BaseParser):
                 if len(times_row) < 14:
                     continue
                 
-                # Days 0-4 are Monday-Friday (weekday)
-                # Days 5-6 are Saturday-Sunday (weekend)
+                # Days 0-4 are Monday-Friday
+                # Days 5-6 are Saturday-Sunday
                 
                 for day_idx in range(7):
-                    day_type = "weekend" if day_idx >= 5 else "weekday"
+                    day_type = DAYS[day_idx]
                     
                     limassol_col = day_idx * 2
                     airport_col = limassol_col + 1
@@ -84,7 +85,7 @@ class ShuttleParser(BaseParser):
                                         })
 
         # Format output
-        for d_type in ["weekday", "weekend"]:
+        for d_type in DAYS:
             for direct, t_list in schedule[d_type].items():
                 if t_list:
                     # User explicitly requested: "нас интересует только From Paphos Airport"
