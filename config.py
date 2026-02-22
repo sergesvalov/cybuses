@@ -20,7 +20,7 @@ ROUTES = {
     },
     "larnaca": {
         "name": "Larnaca", 
-        "url": "https://intercity-buses.com/en/routes/larnaca-paphos-paphos-larnaca/", 
+        "url": "https://intercity-buses.com/en/routes/%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%ce%b1%ce%b3%ce%af%ce%b1-%ce%bd%ce%ac%cf%80/", 
         "target": "larnaca", 
         "provider": "intercity"
     },

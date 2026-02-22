@@ -50,12 +50,18 @@ class IntercityParser(BaseParser):
             txt = tag.get_text(" ", strip=True).lower()
             norm_txt = txt.replace("–", "-").replace("—", "-")
             
-            is_from_paphos = ("from paphos" in norm_txt or "from pafos" in norm_txt or 
-                              f"paphos - {target}" in norm_txt or f"pafos - {target}" in norm_txt or
-                              f"paphos-{target}" in norm_txt)
-            is_to_paphos = (f"from {target}" in norm_txt or 
-                            f"{target} - paphos" in norm_txt or f"{target} - pafos" in norm_txt or
-                            f"{target}-paphos" in norm_txt)
+            is_from_paphos = (
+                "from paphos" in norm_txt or "from pafos" in norm_txt or 
+                f"paphos - {target}" in norm_txt or f"pafos - {target}" in norm_txt or
+                f"paphos-{target}" in norm_txt or
+                (target == "larnaca" and ("paphos - larnaca" in norm_txt or "paphos-larnaca" in norm_txt))
+            )
+            is_to_paphos = (
+                f"from {target}" in norm_txt or 
+                f"{target} - paphos" in norm_txt or f"{target} - pafos" in norm_txt or
+                f"{target}-paphos" in norm_txt or
+                (target == "larnaca" and ("larnaca - paphos" in norm_txt or "larnaca-paphos" in norm_txt))
+            )
 
             if is_from_paphos and not is_to_paphos and len(txt) < 100:
                 current_dir = "from_paphos"; continue
