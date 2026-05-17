@@ -57,54 +57,54 @@ The frontend `app.js` polls the `/api/data` endpoint, maintaining a local state 
 
 The project includes a standalone **MCP (Model Context Protocol)** server that exposes intercity bus schedule data to AI assistants (e.g., Telegram bot-secretary, Claude Desktop).
 
-> ⚠️ **MCP — это НЕ веб-страница!** Не открывайте `http://host:8888/mcp` в браузере — получите 404.  
-> MCP — это машинный протокол (POST-based), предназначенный для подключения AI-клиентов.
+> ⚠️ **MCP is NOT a web page!** Do not open `http://host:8888/mcp` in your browser — you will get a 404.  
+> MCP is a machine-to-machine protocol (POST-based) designed for connecting AI clients.
 
-### Запуск MCP-сервера
+### Running the MCP Server
 
 ```bash
-# Отдельно (для разработки)
+# Standalone (for development)
 python mcp_server.py
 
-# В Docker — запускается автоматически вместе с основным приложением
+# In Docker — runs automatically alongside the main app
 docker run -p 8000:8000 -p 8888:8888 cybuses
 ```
 
-Сервер стартует на `http://0.0.0.0:8888/mcp` (Streamable HTTP transport).
+The server starts on `http://0.0.0.0:8888/mcp` using **Streamable HTTP** transport.
 
-### Доступные инструменты (Tools)
+### Available Tools
 
-| Tool | Параметры | Описание |
+| Tool | Parameters | Description |
 |------|-----------|----------|
-| `get_intercity_routes` | — | Список маршрутов: Limassol, Nicosia, Larnaca |
-| `get_schedule` | `route` | Полное расписание (оба направления, цены, примечания) |
-| `get_nearest_bus` | `route`, `direction?` | Ближайший автобус с обратным отсчётом в минутах |
+| `get_intercity_routes` | — | Lists available routes: Limassol, Nicosia, Larnaca |
+| `get_schedule` | `route` | Full schedule (both directions, prices, footnotes) |
+| `get_nearest_bus` | `route`, `direction?` | Nearest bus departure with countdown in minutes |
 
-**Значения `route`:** `"limassol"`, `"nicosia"`, `"larnaca"`  
-**Значения `direction`:** `"from_paphos"`, `"to_paphos"` (опционально)
+**Route keys (`route`):** `"limassol"`, `"nicosia"`, `"larnaca"`  
+**Direction keys (`direction`):** `"from_paphos"`, `"to_paphos"` (optional)
 
-### Подключение из Python (MCP-клиент)
+### Connecting from Python (MCP Client)
 
 ```python
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
 async def get_bus_schedule():
-    url = "http://<host>:8888/mcp"  # Заменить <host> на адрес сервера
+    url = "http://<host>:8888/mcp"  # Replace <host> with your server's address
     
     async with streamablehttp_client(url) as (read, write, _):
         async with ClientSession(read, write) as session:
             await session.initialize()
             
-            # Получить список маршрутов
+            # Get available routes
             routes = await session.call_tool("get_intercity_routes", {})
             print(routes.content[0].text)
             
-            # Получить расписание Limassol
+            # Get schedule for Limassol
             schedule = await session.call_tool("get_schedule", {"route": "limassol"})
             print(schedule.content[0].text)
             
-            # Ближайший автобус из Пафоса в Ларнаку
+            # Get nearest bus from Paphos to Larnaca
             nearest = await session.call_tool("get_nearest_bus", {
                 "route": "larnaca",
                 "direction": "from_paphos"
@@ -112,18 +112,18 @@ async def get_bus_schedule():
             print(nearest.content[0].text)
 ```
 
-### 🤖 Интеграция в AI Секретаря (Telegram-бот из другого проекта)
+### 🤖 Integrating with your AI Secretary (Telegram Bot / Other Project)
 
-Чтобы ваш бот-секретарь (или любой другой LLM-агент) мог вызывать эти инструменты, выполните следующие шаги в проекте бота:
+To enable your bot secretary (or any other LLM agent) to call these tools, follow these steps in your bot's codebase:
 
-#### 1. Установите зависимости в проекте бота
-Добавьте библиотеку `mcp` в `requirements.txt` вашего бота:
+#### 1. Install dependencies in the bot project
+Add the `mcp` library to your bot's `requirements.txt`:
 ```bash
 pip install mcp
 ```
 
-#### 2. Создайте клиентский модуль `mcp_client.py` в проекте бота
-Добавьте этот вспомогательный класс, который будет управлять соединением и вызовом инструментов:
+#### 2. Create the client module `mcp_client.py` in the bot project
+Add this helper class to manage connections and invoke MCP tools:
 
 ```python
 # mcp_client.py
@@ -134,12 +134,12 @@ from mcp import ClientSession
 
 logger = logging.getLogger(__name__)
 
-# Адрес сервера cybuses (например, http://localhost:8888/mcp или IP контейнера)
+# CyBuses MCP server URL (e.g., http://localhost:8888/mcp or your container IP)
 CYBUSES_MCP_URL = os.getenv("CYBUSES_MCP_URL", "http://localhost:8888/mcp")
 
 class CyBusesClient:
     async def call_tool(self, tool_name: str, arguments: dict = None) -> str:
-        """Безопасный вызов инструмента MCP сервера CyBuses"""
+        """Safely invoke an MCP tool on the CyBuses server"""
         if arguments is None:
             arguments = {}
         try:
@@ -149,86 +149,86 @@ class CyBusesClient:
                     result = await session.call_tool(tool_name, arguments)
                     if result and result.content:
                         return result.content[0].text
-                    return "Ошибка: пустой ответ от сервера."
+                    return "Error: Empty response from server."
         except Exception as e:
-            logger.error(f"Ошибка вызова MCP инструмента {tool_name}: {e}")
-            return f"Не удалось получить данные об автобусах. Ошибка: {str(e)}"
+            logger.error(f"Error calling MCP tool {tool_name}: {e}")
+            return f"Failed to retrieve bus data. Error: {str(e)}"
 
-# Создаем глобальный клиент
+# Create a global client instance
 cybuses_client = CyBusesClient()
 ```
 
-#### 3. Зарегистрируйте инструменты в системе AI секретаря
-Интегрируйте функции-обертки в ваш LLM-агент (например, LangChain, Custom Agent или OpenAI Assistants).
+#### 3. Register tools within your AI Secretary system
+Integrate helper functions into your LLM agent framework (e.g., LangChain, Custom Agent, or OpenAI Assistants).
 
-**Пример интеграции в кастомного агента на Python:**
+**Example integration for a custom Python agent:**
 
 ```python
-# tools.py в проекте бота
+# tools.py in the bot project
 from mcp_client import cybuses_client
 
 async def get_intercity_routes_tool() -> str:
     """
-    Полезно для получения списка доступных междугородних маршрутов автобусов Кипра (например, limassol, nicosia, larnaca).
+    Useful for listing available intercity bus routes in Cyprus (e.g., limassol, nicosia, larnaca).
     """
     return await cybuses_client.call_tool("get_intercity_routes")
 
 async def get_schedule_tool(route: str) -> str:
     """
-    Полезно для получения полного расписания автобусов для указанного маршрута.
-    route: строка, один из вариантов: 'limassol', 'nicosia', 'larnaca'
+    Useful for fetching the full schedule of buses for a given route.
+    route: str, one of 'limassol', 'nicosia', 'larnaca'
     """
     return await cybuses_client.call_tool("get_schedule", {"route": route})
 
 async def get_nearest_bus_tool(route: str, direction: str = None) -> str:
     """
-    Полезно для поиска ближайшего рейса автобуса от текущего времени.
-    route: строка ('limassol', 'nicosia', 'larnaca')
-    direction: опционально строка ('from_paphos' или 'to_paphos')
+    Useful for finding the next bus departure relative to the current time.
+    route: str ('limassol', 'nicosia', 'larnaca')
+    direction: optional str ('from_paphos' or 'to_paphos')
     """
     return await cybuses_client.call_tool("get_nearest_bus", {"route": route, "direction": direction})
 
-# Добавьте эти функции в список инструментов, доступных вашей LLM модели.
+# Add these functions to your LLM's toolset.
 ```
 
-#### 4. Настройка переменных окружения
-При запуске Docker-контейнера бота или локального процесса добавьте переменную окружения, указывающую на сервер `cybuses`:
+#### 4. Environment Variables
+When running the bot container or a local process, add an environment variable pointing to the `cybuses` server:
 ```bash
-CYBUSES_MCP_URL=http://<ip-адрес-сервера-cybuses>:8888/mcp
+CYBUSES_MCP_URL=http://<ip-address-of-cybuses-server>:8888/mcp
 ```
-*(Если бот и сервер cybuses работают в одной Docker-сети, используйте имя сервиса: `http://cybuses:8888/mcp`)*
+*(If both the bot and the cybuses server run inside the same Docker network, use the service name: `http://cybuses:8888/mcp`)*
 
 
-### Пример ответа `get_schedule`
+### Example `get_schedule` Output
 
 ```
-📅 Расписание: Paphos ↔ Limassol
+📅 Schedule: Paphos ↔ Limassol
 🚌 Paphos ➝ Limassol
-   💶 Цена: € 5
+   💶 Price: € 5
    05:45, 06:10, 07:30, 08:00, 09:00, 10:00, ... 20:00
 
 🚌 Limassol ➝ Paphos
-   💶 Цена: € 5
+   💶 Price: € 5
    06:00, 06:25, 07:25, 08:00, ... 21:00
 ```
 
-### Пример ответа `get_nearest_bus`
+### Example `get_nearest_bus` Output
 
 ```
-🕐 Ближайшие автобусы (14:35) — Limassol
+🕐 Nearest buses (14:35) — Limassol
 
 🚌 Paphos ➝ Limassol
-   ⏰ Ближайший: 15:00
-   ⏳ Через 25 мин
-   Следующие: 15:30, 16:00
+   ⏰ Next departure: 15:00
+   ⏳ In 25 min
+   Following: 15:30, 16:00
 
 🚌 Limassol ➝ Paphos
-   ⏰ Ближайший: 15:00
-   ⏳ Через 25 мин
-   Следующие: 15:30, 16:00
+   ⏰ Next departure: 15:00
+   ⏳ In 25 min
+   Following: 15:30, 16:00
 ```
 
-### Docker: маппинг портов
+### Docker: Port Mapping
 
 ```yaml
 # docker-compose.yml
@@ -242,11 +242,11 @@ services:
 
 ### Troubleshooting
 
-| Проблема | Причина | Решение |
-|----------|---------|---------|
-| `GET /mcp → 404` | Открыли в браузере | MCP не работает через браузер. Используйте MCP-клиент |
-| `Invalid HTTP request` | Браузер шлёт GET | Используйте MCP SDK (`streamablehttp_client`) |
-| Нет данных | Сайт intercity-buses.com недоступен | Проверьте сетевой доступ из контейнера |
+| Issue | Cause | Solution |
+|------|------|---------|
+| `GET /mcp → 404` | Opened in browser | MCP doesn't work via browsers. Use an MCP client |
+| `Invalid HTTP request` | Browser sends GET request | Use the MCP SDK (`streamablehttp_client`) |
+| No data returned | Website intercity-buses.com is down | Check internet access inside the container |
 
 ## ⚠️ Error Handling
 If a parser fails to locate timetable data (e.g., website redesign or PDF link broken), the backend gracefully generates a visible red "Error Banner" injected natively into the UI to notify the user of the disruption, rather than silently failing.
