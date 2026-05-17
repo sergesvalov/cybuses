@@ -57,33 +57,196 @@ The frontend `app.js` polls the `/api/data` endpoint, maintaining a local state 
 
 The project includes a standalone **MCP (Model Context Protocol)** server that exposes intercity bus schedule data to AI assistants (e.g., Telegram bot-secretary, Claude Desktop).
 
-### Running the MCP Server
+> ⚠️ **MCP — это НЕ веб-страница!** Не открывайте `http://host:8888/mcp` в браузере — получите 404.  
+> MCP — это машинный протокол (POST-based), предназначенный для подключения AI-клиентов.
+
+### Запуск MCP-сервера
 
 ```bash
+# Отдельно (для разработки)
 python mcp_server.py
+
+# В Docker — запускается автоматически вместе с основным приложением
+docker run -p 8000:8000 -p 8888:8888 cybuses
 ```
 
-The server starts on `http://0.0.0.0:8888/mcp` using **Streamable HTTP** transport.
+Сервер стартует на `http://0.0.0.0:8888/mcp` (Streamable HTTP transport).
 
-### Available Tools
+### Доступные инструменты (Tools)
 
-| Tool | Description |
-|------|-------------|
-| `get_intercity_routes` | Lists all available intercity routes (Limassol, Nicosia, Larnaca) |
-| `get_schedule(route)` | Full timetable for a route (both directions, prices, notes) |
-| `get_nearest_bus(route, direction?)` | Nearest departure from current time with countdown |
+| Tool | Параметры | Описание |
+|------|-----------|----------|
+| `get_intercity_routes` | — | Список маршрутов: Limassol, Nicosia, Larnaca |
+| `get_schedule` | `route` | Полное расписание (оба направления, цены, примечания) |
+| `get_nearest_bus` | `route`, `direction?` | Ближайший автобус с обратным отсчётом в минутах |
 
-### Connecting from an MCP Client (Python)
+**Значения `route`:** `"limassol"`, `"nicosia"`, `"larnaca"`  
+**Значения `direction`:** `"from_paphos"`, `"to_paphos"` (опционально)
+
+### Подключение из Python (MCP-клиент)
 
 ```python
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
-async with streamablehttp_client("http://<host>:8888/mcp") as (read, write, _):
-    async with ClientSession(read, write) as session:
-        await session.initialize()
-        result = await session.call_tool("get_schedule", {"route": "limassol"})
+async def get_bus_schedule():
+    url = "http://<host>:8888/mcp"  # Заменить <host> на адрес сервера
+    
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            
+            # Получить список маршрутов
+            routes = await session.call_tool("get_intercity_routes", {})
+            print(routes.content[0].text)
+            
+            # Получить расписание Limassol
+            schedule = await session.call_tool("get_schedule", {"route": "limassol"})
+            print(schedule.content[0].text)
+            
+            # Ближайший автобус из Пафоса в Ларнаку
+            nearest = await session.call_tool("get_nearest_bus", {
+                "route": "larnaca",
+                "direction": "from_paphos"
+            })
+            print(nearest.content[0].text)
 ```
+
+### 🤖 Интеграция в AI Секретаря (Telegram-бот из другого проекта)
+
+Чтобы ваш бот-секретарь (или любой другой LLM-агент) мог вызывать эти инструменты, выполните следующие шаги в проекте бота:
+
+#### 1. Установите зависимости в проекте бота
+Добавьте библиотеку `mcp` в `requirements.txt` вашего бота:
+```bash
+pip install mcp
+```
+
+#### 2. Создайте клиентский модуль `mcp_client.py` в проекте бота
+Добавьте этот вспомогательный класс, который будет управлять соединением и вызовом инструментов:
+
+```python
+# mcp_client.py
+import os
+import logging
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
+
+logger = logging.getLogger(__name__)
+
+# Адрес сервера cybuses (например, http://localhost:8888/mcp или IP контейнера)
+CYBUSES_MCP_URL = os.getenv("CYBUSES_MCP_URL", "http://localhost:8888/mcp")
+
+class CyBusesClient:
+    async def call_tool(self, tool_name: str, arguments: dict = None) -> str:
+        """Безопасный вызов инструмента MCP сервера CyBuses"""
+        if arguments is None:
+            arguments = {}
+        try:
+            async with streamablehttp_client(CYBUSES_MCP_URL) as (read, write, _):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    result = await session.call_tool(tool_name, arguments)
+                    if result and result.content:
+                        return result.content[0].text
+                    return "Ошибка: пустой ответ от сервера."
+        except Exception as e:
+            logger.error(f"Ошибка вызова MCP инструмента {tool_name}: {e}")
+            return f"Не удалось получить данные об автобусах. Ошибка: {str(e)}"
+
+# Создаем глобальный клиент
+cybuses_client = CyBusesClient()
+```
+
+#### 3. Зарегистрируйте инструменты в системе AI секретаря
+Интегрируйте функции-обертки в ваш LLM-агент (например, LangChain, Custom Agent или OpenAI Assistants).
+
+**Пример интеграции в кастомного агента на Python:**
+
+```python
+# tools.py в проекте бота
+from mcp_client import cybuses_client
+
+async def get_intercity_routes_tool() -> str:
+    """
+    Полезно для получения списка доступных междугородних маршрутов автобусов Кипра (например, limassol, nicosia, larnaca).
+    """
+    return await cybuses_client.call_tool("get_intercity_routes")
+
+async def get_schedule_tool(route: str) -> str:
+    """
+    Полезно для получения полного расписания автобусов для указанного маршрута.
+    route: строка, один из вариантов: 'limassol', 'nicosia', 'larnaca'
+    """
+    return await cybuses_client.call_tool("get_schedule", {"route": route})
+
+async def get_nearest_bus_tool(route: str, direction: str = None) -> str:
+    """
+    Полезно для поиска ближайшего рейса автобуса от текущего времени.
+    route: строка ('limassol', 'nicosia', 'larnaca')
+    direction: опционально строка ('from_paphos' или 'to_paphos')
+    """
+    return await cybuses_client.call_tool("get_nearest_bus", {"route": route, "direction": direction})
+
+# Добавьте эти функции в список инструментов, доступных вашей LLM модели.
+```
+
+#### 4. Настройка переменных окружения
+При запуске Docker-контейнера бота или локального процесса добавьте переменную окружения, указывающую на сервер `cybuses`:
+```bash
+CYBUSES_MCP_URL=http://<ip-адрес-сервера-cybuses>:8888/mcp
+```
+*(Если бот и сервер cybuses работают в одной Docker-сети, используйте имя сервиса: `http://cybuses:8888/mcp`)*
+
+
+### Пример ответа `get_schedule`
+
+```
+📅 Расписание: Paphos ↔ Limassol
+🚌 Paphos ➝ Limassol
+   💶 Цена: € 5
+   05:45, 06:10, 07:30, 08:00, 09:00, 10:00, ... 20:00
+
+🚌 Limassol ➝ Paphos
+   💶 Цена: € 5
+   06:00, 06:25, 07:25, 08:00, ... 21:00
+```
+
+### Пример ответа `get_nearest_bus`
+
+```
+🕐 Ближайшие автобусы (14:35) — Limassol
+
+🚌 Paphos ➝ Limassol
+   ⏰ Ближайший: 15:00
+   ⏳ Через 25 мин
+   Следующие: 15:30, 16:00
+
+🚌 Limassol ➝ Paphos
+   ⏰ Ближайший: 15:00
+   ⏳ Через 25 мин
+   Следующие: 15:30, 16:00
+```
+
+### Docker: маппинг портов
+
+```yaml
+# docker-compose.yml
+services:
+  cybuses:
+    build: .
+    ports:
+      - "8000:8000"   # Web UI (FastAPI)
+      - "8888:8888"   # MCP Server
+```
+
+### Troubleshooting
+
+| Проблема | Причина | Решение |
+|----------|---------|---------|
+| `GET /mcp → 404` | Открыли в браузере | MCP не работает через браузер. Используйте MCP-клиент |
+| `Invalid HTTP request` | Браузер шлёт GET | Используйте MCP SDK (`streamablehttp_client`) |
+| Нет данных | Сайт intercity-buses.com недоступен | Проверьте сетевой доступ из контейнера |
 
 ## ⚠️ Error Handling
 If a parser fails to locate timetable data (e.g., website redesign or PDF link broken), the backend gracefully generates a visible red "Error Banner" injected natively into the UI to notify the user of the disruption, rather than silently failing.

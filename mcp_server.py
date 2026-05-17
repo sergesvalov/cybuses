@@ -7,11 +7,16 @@ Standalone MCP server exposing intercity bus schedule data
 Run:
     python mcp_server.py
 
-Transport: streamable-http (default port 8888, path /mcp)
+Transport: streamable-http (port 8888, path /mcp)
 Connect your MCP client to: http://<host>:8888/mcp
+
+⚠️ This is NOT a web page! Do NOT open in browser.
+   MCP is a machine-to-machine protocol (POST-based).
+   Use an MCP client (Python SDK, Claude Desktop, etc.)
 """
 
 import asyncio
+import logging
 import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional
@@ -21,6 +26,15 @@ from mcp.server.fastmcp import FastMCP
 # --- Reuse project internals ---
 from config import ROUTES
 from parsers.intercity import IntercityParser
+
+# ── Logging setup ───────────────────────────────────────────────────────────
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("mcp-cybuses")
 
 # ── Server setup ────────────────────────────────────────────────────────────
 
@@ -35,6 +49,7 @@ mcp = FastMCP(
     host="0.0.0.0",
     port=8888,
     streamable_http_path="/mcp",
+    log_level="INFO",
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
@@ -52,12 +67,21 @@ async def _fetch_schedule(route_key: str) -> list[dict]:
 
     if route_key in _cache:
         entry = _cache[route_key]
-        if now - entry["ts"] < CACHE_TTL:
+        age = now - entry["ts"]
+        if age < CACHE_TTL:
+            log.info(f"Cache HIT for '{route_key}' (age: {age.seconds}s)")
             return entry["data"]
 
+    log.info(f"Cache MISS for '{route_key}', fetching from website...")
     info = INTERCITY_ROUTES[route_key]
-    async with aiohttp.ClientSession() as session:
-        data = await _parser.parse(session, info)
+    try:
+        async with aiohttp.ClientSession() as session:
+            data = await _parser.parse(session, info)
+        log.info(f"Fetched '{route_key}': {len(data)} direction(s), "
+                 f"{sum(len(d.get('times', [])) for d in data)} time entries")
+    except Exception as e:
+        log.error(f"Failed to fetch '{route_key}': {e}")
+        return []
 
     _cache[route_key] = {"data": data, "ts": now}
     return data
@@ -110,6 +134,7 @@ async def get_intercity_routes() -> str:
     из/в Пафос: Limassol, Nicosia, Larnaca. Используй этот инструмент чтобы
     узнать какие маршруты доступны.
     """
+    log.info("Tool called: get_intercity_routes")
     lines = ["📋 Доступные маршруты Intercity (из/в Пафос):", ""]
     for key, info in INTERCITY_ROUTES.items():
         lines.append(f"• {info['name']} — route_key: \"{key}\"")
@@ -129,9 +154,11 @@ async def get_schedule(route: str) -> str:
     Args:
         route: Ключ маршрута — "limassol", "nicosia" или "larnaca"
     """
+    log.info(f"Tool called: get_schedule(route='{route}')")
     route = route.lower().strip()
     if route not in INTERCITY_ROUTES:
         available = ", ".join(INTERCITY_ROUTES.keys())
+        log.warning(f"Unknown route '{route}', available: {available}")
         return f"❌ Неизвестный маршрут '{route}'. Доступные: {available}"
 
     data = await _fetch_schedule(route)
@@ -153,9 +180,11 @@ async def get_nearest_bus(
         direction: Направление — "from_paphos" или "to_paphos". 
                    Если не указано, показывает ближайшие для обоих направлений.
     """
+    log.info(f"Tool called: get_nearest_bus(route='{route}', direction='{direction}')")
     route = route.lower().strip()
     if route not in INTERCITY_ROUTES:
         available = ", ".join(INTERCITY_ROUTES.keys())
+        log.warning(f"Unknown route '{route}', available: {available}")
         return f"❌ Неизвестный маршрут '{route}'. Доступные: {available}"
 
     data = await _fetch_schedule(route)
@@ -201,6 +230,7 @@ async def get_nearest_bus(
             if next_bus.get("note_txt"):
                 note = f" ({next_bus['note_txt']})"
 
+            log.info(f"Next bus {desc}: {next_bus['t']} (in {minutes_left} min)")
             results.append(
                 f"🚌 {desc}\n"
                 f"   ⏰ Ближайший: {next_bus['t']}{note}\n"
@@ -226,4 +256,14 @@ async def get_nearest_bus(
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    log.info("=" * 50)
+    log.info("MCP CyBuses Intercity Server starting...")
+    log.info(f"Transport: streamable-http")
+    log.info(f"Endpoint:  http://0.0.0.0:8888/mcp")
+    log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
+    log.info(f"Cache TTL: {CACHE_TTL}")
+    log.info("=" * 50)
+    log.info("⚠️  This is NOT a web page! Do NOT open in browser.")
+    log.info("    Connect via MCP client (Python SDK / Claude Desktop)")
+    log.info("=" * 50)
     mcp.run(transport="streamable-http")
