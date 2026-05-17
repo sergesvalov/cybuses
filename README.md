@@ -53,5 +53,37 @@ The backend utilizes an asynchronous `ScraperService` that fires parallel reques
 
 The frontend `app.js` polls the `/api/data` endpoint, maintaining a local state of routes. All UI rendering is handled through modular JS components like `BusCard` and `FilterBar`.
 
+## 🤖 MCP Server (AI Integration)
+
+The project includes a standalone **MCP (Model Context Protocol)** server that exposes intercity bus schedule data to AI assistants (e.g., Telegram bot-secretary, Claude Desktop).
+
+### Running the MCP Server
+
+```bash
+python mcp_server.py
+```
+
+The server starts on `http://0.0.0.0:8888/mcp` using **Streamable HTTP** transport.
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_intercity_routes` | Lists all available intercity routes (Limassol, Nicosia, Larnaca) |
+| `get_schedule(route)` | Full timetable for a route (both directions, prices, notes) |
+| `get_nearest_bus(route, direction?)` | Nearest departure from current time with countdown |
+
+### Connecting from an MCP Client (Python)
+
+```python
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
+
+async with streamablehttp_client("http://<host>:8888/mcp") as (read, write, _):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        result = await session.call_tool("get_schedule", {"route": "limassol"})
+```
+
 ## ⚠️ Error Handling
 If a parser fails to locate timetable data (e.g., website redesign or PDF link broken), the backend gracefully generates a visible red "Error Banner" injected natively into the UI to notify the user of the disruption, rather than silently failing.
