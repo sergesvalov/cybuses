@@ -3,6 +3,7 @@ export class FilterBar {
         this.container = document.getElementById(containerId);
         this.onFilterChange = onFilterChange;
         this.state = {
+            c: 'all', // city
             p: 'all', // provider
             d: 'auto' // day type
         };
@@ -10,6 +11,17 @@ export class FilterBar {
 
     render() {
         this.container.innerHTML = `
+            <div class="filter-group">
+                <div class="f-label">Город</div>
+                <div class="scroll-row" id="city-filters">
+                    <button class="pill-btn active" data-filter="c" data-val="all">Все</button>
+                    <button class="pill-btn" data-filter="c" data-val="paphos">Пафос</button>
+                    <button class="pill-btn" data-filter="c" data-val="limassol">Лимассол</button>
+                    <button class="pill-btn" data-filter="c" data-val="nicosia">Никосия</button>
+                    <button class="pill-btn" data-filter="c" data-val="larnaca">Ларнака</button>
+                </div>
+            </div>
+
             <div class="filter-group">
                 <div class="f-label">Агентство</div>
                 <div class="scroll-row" id="agency-filters">

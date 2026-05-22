@@ -36,8 +36,9 @@ class IntercityParser(BaseParser):
                     break
 
         footnotes_map = self.extract_footnotes(soup)
-        target = info['target']
-        blocks = { "from_paphos": [], "to_paphos": [] }
+        city1 = info.get('city1', 'paphos')
+        city2 = info.get('city2', '')
+        blocks = { "dir1": [], "dir2": [] }
         current_dir = None
         
         tags = soup.find_all(['h2', 'h3', 'h4', 'strong', 'b', 'p', 'td', 'span', 'li', 'div'])
@@ -50,23 +51,22 @@ class IntercityParser(BaseParser):
             txt = tag.get_text(" ", strip=True).lower()
             norm_txt = txt.replace("–", "-").replace("—", "-")
             
-            is_from_paphos = (
-                "from paphos" in norm_txt or "from pafos" in norm_txt or 
-                f"paphos - {target}" in norm_txt or f"pafos - {target}" in norm_txt or
-                f"paphos-{target}" in norm_txt or
-                (target == "larnaca" and ("paphos - larnaca" in norm_txt or "paphos-larnaca" in norm_txt))
-            )
-            is_to_paphos = (
-                f"from {target}" in norm_txt or 
-                f"{target} - paphos" in norm_txt or f"{target} - pafos" in norm_txt or
-                f"{target}-paphos" in norm_txt or
-                (target == "larnaca" and ("larnaca - paphos" in norm_txt or "larnaca-paphos" in norm_txt))
-            )
+            def check_match(source, dest, text):
+                s_opts = ["paphos", "pafos"] if source == "paphos" else [source]
+                d_opts = ["paphos", "pafos"] if dest == "paphos" else [dest]
+                for s in s_opts:
+                    if f"from {s}" in text: return True
+                    for d in d_opts:
+                        if f"{s} - {d}" in text or f"{s}-{d}" in text: return True
+                return False
 
-            if is_from_paphos and not is_to_paphos and len(txt) < 100:
-                current_dir = "from_paphos"; continue
-            if is_to_paphos and not is_from_paphos and len(txt) < 100:
-                current_dir = "to_paphos"; continue
+            is_dir1 = check_match(city1, city2, norm_txt)
+            is_dir2 = check_match(city2, city1, norm_txt)
+
+            if is_dir1 and not is_dir2 and len(txt) < 100:
+                current_dir = "dir1"; continue
+            if is_dir2 and not is_dir1 and len(txt) < 100:
+                current_dir = "dir2"; continue
             
             if current_dir:
                 raw = self.extract_times(tag.get_text(" ", strip=True))
@@ -84,11 +84,11 @@ class IntercityParser(BaseParser):
                     if times_only: blocks[current_dir].append(times_only)
 
         dir_titles = {
-            "from_paphos": f"Paphos ➝ {info['name']}",
-            "to_paphos": f"{info['name']} ➝ Paphos"
+            "dir1": f"{city1.title()} ➝ {city2.title()}",
+            "dir2": f"{city2.title()} ➝ {city1.title()}"
         }
         
-        for d_key in ["from_paphos", "to_paphos"]:
+        for d_key in ["dir1", "dir2"]:
             b_list = blocks[d_key]
             if not b_list: continue
             merged_list = [x for sub in b_list for x in sub]

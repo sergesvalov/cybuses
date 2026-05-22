@@ -7,21 +7,31 @@
 ROUTES = {
     # --- INTERCITY BUSES (Междугородние) ---
     "limassol": {
-        "name": "Limassol", 
+        "name": "Paphos ↔ Limassol", 
         "url": "https://intercity-buses.com/en/routes/limassol-paphos-paphos-limassol/", 
-        "target": "limassol", 
+        "city1": "paphos", 
+        "city2": "limassol",
         "provider": "intercity"
     },
     "nicosia": {
-        "name": "Nicosia", 
+        "name": "Paphos ↔ Nicosia", 
         "url": "https://intercity-buses.com/en/routes/nicosia-paphos-paphos-nicosia/", 
-        "target": "nicosia", 
+        "city1": "paphos", 
+        "city2": "nicosia",
         "provider": "intercity"
     },
     "larnaca": {
-        "name": "Larnaca", 
+        "name": "Paphos ↔ Larnaca", 
         "url": "https://intercity-buses.com/en/routes/%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%ce%b1%ce%b3%ce%af%ce%b1-%ce%bd%ce%ac%cf%80/", 
-        "target": "larnaca", 
+        "city1": "paphos", 
+        "city2": "larnaca",
+        "provider": "intercity"
+    },
+    "nicosia_limassol": {
+        "name": "Nicosia ↔ Limassol",
+        "url": "https://intercity-buses.com/en/routes/nicosia-limassol-limassol-nicosia/",
+        "city1": "nicosia",
+        "city2": "limassol",
         "provider": "intercity"
     },
     

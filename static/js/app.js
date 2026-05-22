@@ -87,6 +87,17 @@ class BusApp {
 
             const matchProv = (state.p === 'all' || route.prov === state.p);
 
+            let matchCity = true;
+            if (state.c && state.c !== 'all') {
+                const c = state.c.toLowerCase();
+                const searchStr = \`\${route.name} \${route.desc}\`.toLowerCase();
+                matchCity = searchStr.includes(c);
+                if (c === 'paphos' && route.prov === 'osypa') matchCity = true;
+                if (c === 'paphos' && route.prov === 'shuttle') matchCity = true; 
+                if (c === 'larnaca' && route.name.toLowerCase().includes('kapnos')) matchCity = true;
+                if (c === 'limassol' && route.name.toLowerCase().includes('limassol airport express')) matchCity = true;
+            }
+
             let matchDay = false;
             const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
             const weekends = ['saturday', 'sunday'];
@@ -109,7 +120,7 @@ class BusApp {
                 }
             }
 
-            if (!matchProv || !matchDay) return acc;
+            if (!matchProv || !matchDay || !matchCity) return acc;
 
             if (state.d === 'nearest') {
                 const now = new Date();

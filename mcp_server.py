@@ -42,7 +42,7 @@ mcp = FastMCP(
     name="CyBuses Intercity",
     instructions=(
         "This MCP server provides real-time intercity bus schedules for Cyprus. "
-        "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca. "
+        "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
     ),
@@ -130,12 +130,11 @@ def _format_schedule_text(data: list[dict]) -> str:
 @mcp.tool()
 async def get_intercity_routes() -> str:
     """
-    Возвращает список доступных междугородних маршрутов автобусов (Intercity)
-    из/в Пафос: Limassol, Nicosia, Larnaca. Используй этот инструмент чтобы
-    узнать какие маршруты доступны.
+    Возвращает список доступных междугородних маршрутов автобусов (Intercity).
+    Используй этот инструмент чтобы узнать какие маршруты доступны.
     """
     log.info("Tool called: get_intercity_routes")
-    lines = ["📋 Доступные маршруты Intercity (из/в Пафос):", ""]
+    lines = ["📋 Доступные маршруты Intercity:", ""]
     for key, info in INTERCITY_ROUTES.items():
         lines.append(f"• {info['name']} — route_key: \"{key}\"")
         lines.append(f"  URL: {info['url']}")
@@ -148,11 +147,10 @@ async def get_intercity_routes() -> str:
 async def get_schedule(route: str) -> str:
     """
     Возвращает полное расписание автобусов для указанного маршрута.
-    Включает оба направления (из Пафоса и в Пафос), времена отправления,
-    цены и примечания.
+    Включает оба направления, времена отправления, цены и примечания.
 
     Args:
-        route: Ключ маршрута — "limassol", "nicosia" или "larnaca"
+        route: Ключ маршрута — "limassol", "nicosia", "larnaca" или "nicosia_limassol"
     """
     log.info(f"Tool called: get_schedule(route='{route}')")
     route = route.lower().strip()
@@ -162,7 +160,7 @@ async def get_schedule(route: str) -> str:
         return f"❌ Неизвестный маршрут '{route}'. Доступные: {available}"
 
     data = await _fetch_schedule(route)
-    header = f"📅 Расписание: Paphos ↔ {INTERCITY_ROUTES[route]['name']}\n"
+    header = f"📅 Расписание: {INTERCITY_ROUTES[route]['name']}\n"
     return header + _format_schedule_text(data)
 
 
@@ -176,8 +174,8 @@ async def get_nearest_bus(
     Возвращает время отправления и сколько минут до него осталось.
 
     Args:
-        route: Ключ маршрута — "limassol", "nicosia" или "larnaca"
-        direction: Направление — "from_paphos" или "to_paphos". 
+        route: Ключ маршрута — "limassol", "nicosia", "larnaca" или "nicosia_limassol"
+        direction: Направление — "dir1" или "dir2". 
                    Если не указано, показывает ближайшие для обоих направлений.
     """
     log.info(f"Tool called: get_nearest_bus(route='{route}', direction='{direction}')")
@@ -201,9 +199,12 @@ async def get_nearest_bus(
         # Filter by direction if specified
         if direction:
             direction = direction.lower().strip()
-            if direction == "from_paphos" and "➝" in desc and desc.startswith("Paphos"):
+            city1_name = INTERCITY_ROUTES[route]['city1'].title()
+            city2_name = INTERCITY_ROUTES[route]['city2'].title()
+            
+            if direction == "dir1" and "➝" in desc and desc.startswith(city1_name):
                 pass  # match
-            elif direction == "to_paphos" and "➝" in desc and not desc.startswith("Paphos"):
+            elif direction == "dir2" and "➝" in desc and desc.startswith(city2_name):
                 pass  # match
             else:
                 continue
