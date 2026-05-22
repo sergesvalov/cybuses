@@ -45,11 +45,7 @@ mcp = FastMCP(
         "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
-    ),
-    host="0.0.0.0",
-    port=8888,
-    sse_path="/mcp",
-    log_level="INFO",
+    )
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
@@ -260,11 +256,22 @@ if __name__ == "__main__":
     log.info("=" * 50)
     log.info("MCP CyBuses Intercity Server starting...")
     log.info(f"Transport: sse")
-    log.info(f"Endpoint:  http://0.0.0.0:8888/mcp")
+    log.info(f"Endpoint:  http://0.0.0.0:8888/sse")
     log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
     log.info(f"Cache TTL: {CACHE_TTL}")
     log.info("=" * 50)
     log.info("⚠️  This is NOT a web page! Do NOT open in browser.")
     log.info("    Connect via MCP client (Python SDK / Claude Desktop)")
     log.info("=" * 50)
-    mcp.run(transport="sse")
+    
+    import os
+    # Устанавливаем переменные окружения на случай, если текущая версия SDK полагается на них
+    os.environ["FASTMCP_HOST"] = "0.0.0.0"
+    os.environ["FASTMCP_PORT"] = "8888"
+
+    try:
+        # В новых версиях mcp SDK аргументы host/port передаются в метод run()
+        mcp.run(transport="sse", host="0.0.0.0", port=8888)
+    except TypeError:
+        # Fallback для других версий
+        mcp.run(transport="sse")
