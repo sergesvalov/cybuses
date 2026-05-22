@@ -12,7 +12,7 @@ COPY . .
 # Make the startup script executable
 RUN chmod +x start.sh
 
-EXPOSE 8000 8888
+EXPOSE 8000 8999
 
-# Run both services: FastAPI (8000) and MCP (8888)
+# Run both services: FastAPI (8000) and MCP (8999)
 CMD ["./start.sh"]

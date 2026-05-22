@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start both FastAPI app and MCP server
 
-echo ">>> Starting MCP server on port 8888..."
+echo ">>> Starting MCP server on port 8999..."
 python mcp_server.py &
 
 echo ">>> Starting FastAPI app on port 8000..."

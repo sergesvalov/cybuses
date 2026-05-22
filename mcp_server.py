@@ -7,8 +7,8 @@ Standalone MCP server exposing intercity bus schedule data
 Run:
     python mcp_server.py
 
-Transport: sse (port 8888, path /mcp)
-Connect your MCP client to: http://<host>:8888/mcp/sse
+Transport: sse (port 8999, path /mcp)
+Connect your MCP client to: http://<host>:8999/mcp/sse
 
 ⚠️ This is NOT a web page! Do NOT open in browser.
    MCP is a machine-to-machine protocol (POST-based).
@@ -24,7 +24,7 @@ from typing import Optional
 
 # Задаем переменные окружения ДО импорта и создания FastMCP
 os.environ["FASTMCP_HOST"] = "0.0.0.0"
-os.environ["FASTMCP_PORT"] = "8888"
+os.environ["FASTMCP_PORT"] = "8999"
 
 from mcp.server.fastmcp import FastMCP
 
@@ -54,7 +54,7 @@ logging.getLogger("httpcore").setLevel(logging.DEBUG)
 mcp = FastMCP(
     name="CyBuses Intercity",
     host="0.0.0.0",
-    port=8888,
+    port=8999,
     instructions=(
         "This MCP server provides real-time intercity bus schedules for Cyprus. "
         "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     log.info("=" * 50)
     log.info("MCP CyBuses Intercity Server starting...")
     log.info(f"Transport: sse")
-    log.info(f"Endpoint:  http://0.0.0.0:8888/sse")
+    log.info(f"Endpoint:  http://0.0.0.0:8999/sse")
     log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
     log.info(f"Cache TTL: {CACHE_TTL}")
     log.info("=" * 50)
