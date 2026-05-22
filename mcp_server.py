@@ -171,7 +171,9 @@ async def get_schedule(route: str) -> str:
 
     data = await _fetch_schedule(route)
     header = f"📅 Расписание: {INTERCITY_ROUTES[route]['name']}\n"
-    return header + _format_schedule_text(data)
+    result_text = header + _format_schedule_text(data)
+    log.info(f"get_schedule returning {len(result_text)} chars. Snippet: {result_text[:100].replace('\n', ' ')}...")
+    return result_text
 
 
 @mcp.tool()
@@ -261,7 +263,9 @@ async def get_nearest_bus(
         return "❌ Нет данных для указанного направления."
 
     header = f"🕐 Ближайшие автобусы ({now.strftime('%H:%M')}) — {INTERCITY_ROUTES[route]['name']}\n\n"
-    return header + "\n".join(results).strip()
+    result_text = header + "\n".join(results).strip()
+    log.info(f"get_nearest_bus returning {len(result_text)} chars. Snippet: {result_text[:100].replace('\n', ' ')}...")
+    return result_text
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
