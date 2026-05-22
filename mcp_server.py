@@ -172,7 +172,8 @@ async def get_schedule(route: str) -> str:
     data = await _fetch_schedule(route)
     header = f"📅 Расписание: {INTERCITY_ROUTES[route]['name']}\n"
     result_text = header + _format_schedule_text(data)
-    log.info(f"get_schedule returning {len(result_text)} chars. Snippet: {result_text[:100].replace('\n', ' ')}...")
+    snippet = result_text[:100].replace('\n', ' ')
+    log.info(f"get_schedule returning {len(result_text)} chars. Snippet: {snippet}...")
     return result_text
 
 
@@ -264,7 +265,8 @@ async def get_nearest_bus(
 
     header = f"🕐 Ближайшие автобусы ({now.strftime('%H:%M')}) — {INTERCITY_ROUTES[route]['name']}\n\n"
     result_text = header + "\n".join(results).strip()
-    log.info(f"get_nearest_bus returning {len(result_text)} chars. Snippet: {result_text[:100].replace('\n', ' ')}...")
+    snippet = result_text[:100].replace('\n', ' ')
+    log.info(f"get_nearest_bus returning {len(result_text)} chars. Snippet: {snippet}...")
     return result_text
 
 
