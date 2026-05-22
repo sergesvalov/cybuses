@@ -53,6 +53,8 @@ logging.getLogger("httpcore").setLevel(logging.DEBUG)
 
 mcp = FastMCP(
     name="CyBuses Intercity",
+    host="0.0.0.0",
+    port=8888,
     instructions=(
         "This MCP server provides real-time intercity bus schedules for Cyprus. "
         "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
