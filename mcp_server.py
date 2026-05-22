@@ -7,8 +7,8 @@ Standalone MCP server exposing intercity bus schedule data
 Run:
     python mcp_server.py
 
-Transport: streamable-http (port 8888, path /mcp)
-Connect your MCP client to: http://<host>:8888/mcp
+Transport: sse (port 8888, path /mcp)
+Connect your MCP client to: http://<host>:8888/mcp/sse
 
 ⚠️ This is NOT a web page! Do NOT open in browser.
    MCP is a machine-to-machine protocol (POST-based).
@@ -48,7 +48,7 @@ mcp = FastMCP(
     ),
     host="0.0.0.0",
     port=8888,
-    streamable_http_path="/mcp",
+    sse_path="/mcp",
     log_level="INFO",
 )
 
@@ -259,7 +259,7 @@ async def get_nearest_bus(
 if __name__ == "__main__":
     log.info("=" * 50)
     log.info("MCP CyBuses Intercity Server starting...")
-    log.info(f"Transport: streamable-http")
+    log.info(f"Transport: sse")
     log.info(f"Endpoint:  http://0.0.0.0:8888/mcp")
     log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
     log.info(f"Cache TTL: {CACHE_TTL}")
@@ -267,4 +267,4 @@ if __name__ == "__main__":
     log.info("⚠️  This is NOT a web page! Do NOT open in browser.")
     log.info("    Connect via MCP client (Python SDK / Claude Desktop)")
     log.info("=" * 50)
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="sse")
