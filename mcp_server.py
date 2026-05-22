@@ -15,11 +15,16 @@ Connect your MCP client to: http://<host>:8888/mcp/sse
    Use an MCP client (Python SDK, Claude Desktop, etc.)
 """
 
+import os
 import asyncio
 import logging
 import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional
+
+# Задаем переменные окружения ДО импорта и создания FastMCP
+os.environ["FASTMCP_HOST"] = "0.0.0.0"
+os.environ["FASTMCP_PORT"] = "8888"
 
 from mcp.server.fastmcp import FastMCP
 
@@ -54,8 +59,7 @@ mcp = FastMCP(
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
     ),
-    host="0.0.0.0",
-    port=8888,
+    sse_path="/mcp"  # Явно задаем путь /mcp, так как клиент подключается к нему
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
