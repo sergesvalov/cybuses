@@ -53,7 +53,9 @@ mcp = FastMCP(
         "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
-    )
+    ),
+    host="0.0.0.0",
+    port=8888,
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
@@ -272,14 +274,5 @@ if __name__ == "__main__":
     log.info("    Connect via MCP client (Python SDK / Claude Desktop)")
     log.info("=" * 50)
     
-    import os
-    # Устанавливаем переменные окружения на случай, если текущая версия SDK полагается на них
-    os.environ["FASTMCP_HOST"] = "0.0.0.0"
-    os.environ["FASTMCP_PORT"] = "8888"
-
-    try:
-        # В новых версиях mcp SDK аргументы host/port передаются в метод run()
-        mcp.run(transport="sse", host="0.0.0.0", port=8888)
-    except TypeError:
-        # Fallback для других версий
-        mcp.run(transport="sse")
+    # В mcp SDK аргументы host/port передаются в конструктор FastMCP
+    mcp.run(transport="sse")
