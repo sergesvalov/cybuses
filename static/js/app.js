@@ -90,7 +90,7 @@ class BusApp {
             let matchCity = true;
             if (state.c && state.c !== 'all') {
                 const c = state.c.toLowerCase();
-                const searchStr = \`\${route.name} \${route.desc}\`.toLowerCase();
+                const searchStr = `${route.name} ${route.desc}`.toLowerCase();
                 matchCity = searchStr.includes(c);
                 if (c === 'paphos' && route.prov === 'osypa') matchCity = true;
                 if (c === 'paphos' && route.prov === 'shuttle') matchCity = true; 
