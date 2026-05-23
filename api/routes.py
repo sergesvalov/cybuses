@@ -24,10 +24,16 @@ async def update_task():
 
 @router.get("/data")
 async def get_data(bt: BackgroundTasks):
-    """Returns data from memory. If empty and not updating - triggers update."""
-    # If memory is empty and we are not currently updating - kick off the scraper
-    if not cache_manager.get_data() and not cache_manager.is_updating(): 
-        bt.add_task(update_task)
+    """Returns data from memory. If empty, waits for update."""
+    if not cache_manager.get_data():
+        if not cache_manager.is_updating(): 
+            # If nothing triggered the update yet, do it now and wait
+            await update_task()
+        else:
+            # If it's already updating, wait for it to finish
+            import asyncio
+            while cache_manager.is_updating():
+                await asyncio.sleep(0.5)
     
     return cache_manager.get_data()
 
