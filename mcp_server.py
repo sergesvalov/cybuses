@@ -7,8 +7,8 @@ Standalone MCP server exposing intercity bus schedule data
 Run:
     python mcp_server.py
 
-Transport: sse (port 8999, path /mcp)
-Connect your MCP client to: http://<host>:8999/mcp/sse
+Transport: sse (port 8999, path /sse)
+Connect your MCP client to: http://<host>:8999/sse
 
 ⚠️ This is NOT a web page! Do NOT open in browser.
    MCP is a machine-to-machine protocol (POST-based).
@@ -61,7 +61,7 @@ mcp = FastMCP(
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
     ),
-    sse_path="/mcp"  # Явно задаем путь /mcp, так как клиент подключается к нему
+    sse_path="/sse"  # Стандартный путь для SSE
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
