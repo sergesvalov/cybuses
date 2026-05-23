@@ -190,7 +190,7 @@ async def get_nearest_bus(
 
     Args:
         route: Ключ маршрута — "limassol", "nicosia", "larnaca" или "nicosia_limassol"
-        direction: Направление — "dir1" или "dir2". 
+        direction: Направление — "dir1" (или "from_paphos") / "dir2" (или "to_paphos"). 
                    Если не указано, показывает ближайшие для обоих направлений.
     """
     log.info(f"Tool called: get_nearest_bus(route='{route}', direction='{direction}')")
@@ -217,9 +217,9 @@ async def get_nearest_bus(
             city1_name = INTERCITY_ROUTES[route]['city1'].title()
             city2_name = INTERCITY_ROUTES[route]['city2'].title()
             
-            if direction == "dir1" and "➝" in desc and desc.startswith(city1_name):
+            if direction in ("dir1", "from_paphos") and "➝" in desc and desc.startswith(city1_name):
                 pass  # match
-            elif direction == "dir2" and "➝" in desc and desc.startswith(city2_name):
+            elif direction in ("dir2", "to_paphos") and "➝" in desc and desc.startswith(city2_name):
                 pass  # match
             else:
                 continue
