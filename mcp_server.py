@@ -21,6 +21,7 @@ import logging
 import aiohttp
 from datetime import datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 # Задаем переменные окружения ДО импорта и создания FastMCP
 os.environ["FASTMCP_HOST"] = "0.0.0.0"
@@ -75,7 +76,7 @@ INTERCITY_ROUTES = {k: v for k, v in ROUTES.items() if v.get("provider") == "int
 
 async def _fetch_schedule(route_key: str) -> list[dict]:
     """Fetch schedule from website or return from cache."""
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Nicosia"))
 
     if route_key in _cache:
         entry = _cache[route_key]
@@ -209,7 +210,7 @@ async def get_nearest_bus(
     if not data:
         return "❌ Не удалось загрузить расписание."
 
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Asia/Nicosia"))
     now_str = now.strftime("%H:%M")
     results = []
 
