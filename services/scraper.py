@@ -58,6 +58,11 @@ class ScraperService:
                 }]
                 
             logger.info(f"[{provider_key.upper()}] Successfully parsed {len(result)} directions for {info['name']}")
+            
+            for item in result:
+                if 'duration' not in item and 'duration' in info:
+                    item['duration'] = info['duration']
+                    
             return result
         except Exception as e:
             logger.error(f"[{provider_key.upper()}] Critical Error fetching {info['name']} at {url}: {e}", exc_info=True)

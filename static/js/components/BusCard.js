@@ -64,6 +64,11 @@ export class BusCard {
             ? `<span class="price-badge">${escapeHtml(this.data.price)}</span>`
             : '';
 
+        // Duration Badge
+        const durationHtml = this.data.duration
+            ? `<span class="duration-badge">⏱ ${escapeHtml(this.data.duration)}</span>`
+            : '';
+
         // Error Banner
         const errorHtml = this.data.hasError
             ? `<div class="c-error-banner">⚠️ ${escapeHtml(this.data.errorMsg)}</div>`
@@ -72,7 +77,7 @@ export class BusCard {
         card.innerHTML = `
             <div class="c-head">
                 <div>
-                    <span class="c-title">${safeTitle} ${dayBadge} ${priceHtml}</span>
+                    <span class="c-title">${safeTitle} ${dayBadge} ${priceHtml} ${durationHtml}</span>
                     <div class="c-desc">${safeDesc}</div>
                 </div>
                 <div class="c-actions">

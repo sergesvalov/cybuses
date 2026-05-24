@@ -333,6 +333,16 @@ body {
     white-space: nowrap;
 }
 
+.duration-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .link-icon {
     color: var(--primary);
     background: rgba(59, 130, 246, 0.1);

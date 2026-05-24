@@ -91,6 +91,9 @@ async def _fetch_schedule(route_key: str) -> list[dict]:
             data = await _parser.parse(session, info)
         log.info(f"Fetched '{route_key}': {len(data)} direction(s), "
                  f"{sum(len(d.get('times', [])) for d in data)} time entries")
+        for item in data:
+            if 'duration' not in item and 'duration' in info:
+                item['duration'] = info['duration']
     except Exception as e:
         log.error(f"Failed to fetch '{route_key}': {e}")
         return []
@@ -109,6 +112,8 @@ def _format_schedule_text(data: list[dict]) -> str:
         lines.append(f"🚌 {direction['desc']}")
         if direction.get("price"):
             lines.append(f"   💶 Цена: {direction['price']}")
+        if direction.get("duration"):
+            lines.append(f"   ⏱ В пути: {direction['duration']}")
 
         times = direction.get("times", [])
         if not times:
@@ -246,11 +251,15 @@ async def get_nearest_bus(
             if next_bus.get("note_txt"):
                 note = f" ({next_bus['note_txt']})"
 
+            duration_text = ""
+            if dir_data.get("duration"):
+                duration_text = f"\n   ⏱ В пути: {dir_data['duration']}"
+
             log.info(f"Next bus {desc}: {next_bus['t']} (in {minutes_left} min)")
             results.append(
                 f"🚌 {desc}\n"
                 f"   ⏰ Ближайший: {next_bus['t']}{note}\n"
-                f"   ⏳ Через {minutes_left} мин"
+                f"   ⏳ Через {minutes_left} мин{duration_text}"
             )
 
             # Show also next 2 buses after that
