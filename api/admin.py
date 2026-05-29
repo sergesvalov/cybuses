@@ -45,6 +45,72 @@ async def create_route(route: RouteCreate, username: str = Depends(verify_creden
         await session.refresh(db_route)
         return db_route
 
+import re
+from schemas import RouteBulkCreate
+
+@router.post("/routes/bulk")
+async def create_route_bulk(payload: RouteBulkCreate, username: str = Depends(verify_credentials)):
+    """Parses raw text schedules and creates a route with its directions and departures."""
+    lines = [line.strip() for line in payload.text.split('\n') if line.strip()]
+    
+    blocks = []
+    current_direction = "Unknown"
+    current_day = "all"
+    notes_by_dir = {}
+    time_pattern = re.compile(r'(\d{1,2}:\d{2})\s*([*A-Za-z]*)')
+    
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if line.startswith('*'):
+            parts = line.split(' ', 1)
+            if len(parts) == 2:
+                notes_by_dir.setdefault(current_direction, {})[parts[0]] = parts[1]
+            continue
+            
+        if any(d in low for d in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'daily', 'every day', 'будни', 'выходные']):
+            current_day = line
+            if i > 0:
+                prev = lines[i-1]
+                if not time_pattern.search(prev) and not prev.startswith('*') and 'bus stops' not in prev.lower() and 'ticket' not in prev.lower():
+                    current_direction = prev
+            continue
+            
+        matches = time_pattern.findall(line)
+        if matches:
+            blocks.append({
+                "direction": current_direction,
+                "day_type": current_day,
+                "times": [{"t": m[0], "sym": m[1]} for m in matches]
+            })
+
+    async with AsyncSessionLocal() as session:
+        # Create Route
+        db_route = Route(provider=payload.provider, name=payload.name)
+        session.add(db_route)
+        await session.flush()
+        
+        for b in blocks:
+            d_desc = b["direction"]
+            # Check if this direction+day already created for this route (just in case)
+            db_dir = Direction(route_id=db_route.id, description=d_desc, day_type=b["day_type"])
+            session.add(db_dir)
+            await session.flush()
+            
+            d_notes = notes_by_dir.get(d_desc, {})
+            for t in b["times"]:
+                sym = t["sym"] if t["sym"] else None
+                db_dep = Departure(
+                    direction_id=db_dir.id, 
+                    time=t["t"], 
+                    note_symbol=sym, 
+                    note_text=d_notes.get(sym) if sym else None
+                )
+                session.add(db_dep)
+        
+        await session.commit()
+        await session.refresh(db_route)
+        return db_route
+
 @router.put("/routes/{route_id}")
 async def update_route(route_id: int, route: RouteUpdate, username: str = Depends(verify_credentials)):
     async with AsyncSessionLocal() as session:

@@ -6,6 +6,11 @@ class RouteCreate(BaseModel):
     name: str
     url: Optional[str] = None
 
+class RouteBulkCreate(BaseModel):
+    provider: str
+    name: str
+    text: str
+
 class RouteUpdate(BaseModel):
     provider: Optional[str] = None
     name: Optional[str] = None

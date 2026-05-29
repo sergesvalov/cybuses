@@ -38,6 +38,7 @@ class AdminApp {
 
     bindEvents() {
         document.getElementById('btn-add-route').addEventListener('click', () => this.showModal('route'));
+        document.getElementById('btn-import-route').addEventListener('click', () => this.showModal('bulk'));
         document.getElementById('btn-add-dir').addEventListener('click', () => this.showModal('direction'));
         document.getElementById('btn-add-dep').addEventListener('click', () => this.showModal('departure'));
         
@@ -159,7 +160,17 @@ class AdminApp {
         this.modalEntityId = entity ? entity.id : null;
         
         let html = '';
-        if (type === 'route') {
+        if (type === 'bulk') {
+            this.modalTitle.textContent = 'Bulk Import from Text';
+            html = `
+                <label>Provider (e.g. manual, intercity, osypa)</label>
+                <input type="text" id="m-provider" value="manual" required>
+                <label>Route Name (e.g. Nicosia ↔ Limassol)</label>
+                <input type="text" id="m-name" required>
+                <label>Paste Raw Schedule Text</label>
+                <textarea id="m-text" rows="15" required style="width:100%; background:rgba(255,255,255,0.05); color:white; border:1px solid #4f46e5; padding:10px; border-radius:8px; font-family:inherit;"></textarea>
+            `;
+        } else if (type === 'route') {
             this.modalTitle.textContent = entity ? 'Edit Route' : 'New Route';
             html = `
                 <label>Provider (e.g. manual, intercity, osypa)</label>
@@ -208,7 +219,15 @@ class AdminApp {
         }
 
         let payload = {};
-        if (this.modalType === 'route') {
+        if (this.modalType === 'bulk') {
+            url = '/api/admin/routes/bulk';
+            method = 'POST';
+            payload = {
+                provider: document.getElementById('m-provider').value,
+                name: document.getElementById('m-name').value,
+                text: document.getElementById('m-text').value
+            };
+        } else if (this.modalType === 'route') {
             payload = {
                 provider: document.getElementById('m-provider').value,
                 name: document.getElementById('m-name').value,
