@@ -31,9 +31,7 @@ async def get_data(bt: BackgroundTasks):
             await update_task()
         else:
             # If it's already updating, wait for it to finish
-            import asyncio
-            while cache_manager.is_updating():
-                await asyncio.sleep(0.5)
+            await cache_manager.wait_for_update()
     
     return cache_manager.get_data()
 

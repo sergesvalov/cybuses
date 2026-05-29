@@ -31,7 +31,8 @@ from mcp.server.fastmcp import FastMCP
 
 # --- Reuse project internals ---
 from config import ROUTES
-from parsers.intercity import IntercityParser
+from services.cache import CacheManager
+from services.scraper import ScraperService
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 
@@ -67,40 +68,38 @@ mcp = FastMCP(
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
 
-_cache: dict[str, dict] = {}          # route_key -> {"data": [...], "ts": datetime}
-CACHE_TTL = timedelta(minutes=5)
-_parser = IntercityParser()
+cache_manager = CacheManager()
+scraper_service = ScraperService()
 
 INTERCITY_ROUTES = {k: v for k, v in ROUTES.items() if v.get("provider") == "intercity"}
 
 
 async def _fetch_schedule(route_key: str) -> list[dict]:
-    """Fetch schedule from website or return from cache."""
-    now = datetime.now(ZoneInfo("Asia/Nicosia"))
-
-    if route_key in _cache:
-        entry = _cache[route_key]
-        age = now - entry["ts"]
-        if age < CACHE_TTL:
-            log.info(f"Cache HIT for '{route_key}' (age: {age.seconds}s)")
-            return entry["data"]
+    """Fetch schedule from shared cache, fallback to scraper."""
+    # Always try to load latest from disk (in case main API updated it)
+    cache_manager.load_from_disk()
+    data = cache_manager.get_data()
+    
+    info = INTERCITY_ROUTES[route_key]
+    route_name = info['name']
+    
+    if data:
+        # Filter for the requested route_key
+        route_data = [d for d in data if d.get('prov') == 'intercity' and d.get('name') == route_name]
+        if route_data:
+            log.info(f"Cache HIT for '{route_key}' (from shared bus_cache.json)")
+            return route_data
 
     log.info(f"Cache MISS for '{route_key}', fetching from website...")
-    info = INTERCITY_ROUTES[route_key]
     try:
         async with aiohttp.ClientSession() as session:
-            data = await _parser.parse(session, info)
-        log.info(f"Fetched '{route_key}': {len(data)} direction(s), "
-                 f"{sum(len(d.get('times', [])) for d in data)} time entries")
-        for item in data:
-            if 'duration' not in item and 'duration' in info:
-                item['duration'] = info['duration']
+            route_data = await scraper_service.fetch_route(session, route_key, info)
+        log.info(f"Fetched '{route_key}': {len(route_data)} direction(s)")
+        
+        return route_data
     except Exception as e:
         log.error(f"Failed to fetch '{route_key}': {e}")
         return []
-
-    _cache[route_key] = {"data": data, "ts": now}
-    return data
 
 
 def _format_schedule_text(data: list[dict]) -> str:

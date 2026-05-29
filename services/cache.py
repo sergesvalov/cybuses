@@ -8,6 +8,16 @@ class CacheManager:
     def __init__(self):
         self._memory_cache = []
         self._updating = False
+        self._update_event = None
+
+    def _get_event(self):
+        if self._update_event is None:
+            self._update_event = asyncio.Event()
+            self._update_event.set()
+        return self._update_event
+
+    async def wait_for_update(self):
+        await self._get_event().wait()
 
     def load_from_disk(self):
         """Reads the cache file from disk and saves it to memory."""
@@ -58,6 +68,11 @@ class CacheManager:
 
     def set_updating(self, is_updating: bool):
         self._updating = is_updating
+        event = self._get_event()
+        if is_updating:
+            event.clear()
+        else:
+            event.set()
 
     def is_updating(self):
         return self._updating

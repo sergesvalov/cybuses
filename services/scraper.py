@@ -20,27 +20,33 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 class ScraperService:
-    def __init__(self):
+    def __init__(self, concurrency_limit=3):
         self.parser_map = {
             "intercity": IntercityParser(),
             "osypa": OsypaParser(),
             "shuttle": ShuttleParser()
         }
+        self.concurrency_limit = concurrency_limit
+        self.semaphore = None
 
     async def fetch_route(self, session, key, info):
         """
         Получает данные для одного маршрута.
         Оборачивает ошибки, чтобы падение одного сайта не ломало всё.
         """
-        provider_key = info.get('provider')
-        parser = self.parser_map.get(provider_key)
-        
-        if not parser:
-            logger.warning(f"Unknown provider for {key}")
-            return []
+        if self.semaphore is None:
+            self.semaphore = asyncio.Semaphore(self.concurrency_limit)
 
-        url = info.get('url', 'No URL')
-        logger.info(f"[{provider_key.upper()}] Fetching: {info['name']} from {url} ...")
+        async with self.semaphore:
+            provider_key = info.get('provider')
+            parser = self.parser_map.get(provider_key)
+            
+            if not parser:
+                logger.warning(f"Unknown provider for {key}")
+                return []
+
+            url = info.get('url', 'No URL')
+            logger.info(f"[{provider_key.upper()}] Fetching: {info['name']} from {url} ...")
         try:
             result = await parser.parse(session, info)
             
