@@ -38,8 +38,12 @@ class IntercityParser(BaseParser):
         footnotes_map = self.extract_footnotes(soup)
         city1 = info.get('city1', 'paphos')
         city2 = info.get('city2', '')
-        blocks = { "dir1": [], "dir2": [] }
+        blocks = { 
+            "dir1": {"daily": [], "weekday": [], "weekend": []}, 
+            "dir2": {"daily": [], "weekday": [], "weekend": []} 
+        }
         current_dir = None
+        current_type = "daily"
         
         tags = soup.find_all(['h2', 'h3', 'h4', 'strong', 'b', 'p', 'td', 'span', 'li', 'div'])
         
@@ -64,9 +68,23 @@ class IntercityParser(BaseParser):
             is_dir2 = check_match(city2, city1, norm_txt)
 
             if is_dir1 and not is_dir2 and len(txt) < 100:
-                current_dir = "dir1"; continue
+                current_dir = "dir1"
+                current_type = "daily"
+                continue
             if is_dir2 and not is_dir1 and len(txt) < 100:
-                current_dir = "dir2"; continue
+                current_dir = "dir2"
+                current_type = "daily"
+                continue
+            
+            if len(norm_txt) < 100:
+                if "monday" in norm_txt and "sunday" in norm_txt:
+                    current_type = "daily"
+                elif "monday" in norm_txt and "friday" in norm_txt:
+                    current_type = "weekday"
+                elif "saturday" in norm_txt or "sunday" in norm_txt or "public holiday" in norm_txt:
+                    current_type = "weekend"
+                elif "daily" in norm_txt:
+                    current_type = "daily"
             
             if current_dir:
                 raw = self.extract_times(tag.get_text(" ", strip=True))
@@ -81,30 +99,41 @@ class IntercityParser(BaseParser):
                         times_only.append({
                             "t": norm_t, "n": stars, "f": norm_t + stars, "note_txt": note_text
                         })
-                    if times_only: blocks[current_dir].append(times_only)
+                    if times_only: 
+                        blocks[current_dir][current_type].append(times_only)
 
         dir_titles = {
             "dir1": f"{city1.title()} ➝ {city2.title()}",
             "dir2": f"{city2.title()} ➝ {city1.title()}"
         }
+        type_titles = {
+            "daily": "",
+            "weekday": "(Будни)",
+            "weekend": "(Выходные)"
+        }
         
         for d_key in ["dir1", "dir2"]:
-            b_list = blocks[d_key]
-            if not b_list: continue
-            merged_list = [x for sub in b_list for x in sub]
-            
-            seen, final_list = set(), []
-            for x in merged_list:
-                k = x['t'] + x['n']
-                if k not in seen:
-                    final_list.append(x); seen.add(k)
-            final_list.sort(key=lambda k: k['t'])
-            
-            if not final_list: continue
+            for t_key in ["daily", "weekday", "weekend"]:
+                b_list = blocks[d_key][t_key]
+                if not b_list: continue
+                merged_list = [x for sub in b_list for x in sub]
+                
+                seen, final_list = set(), []
+                for x in merged_list:
+                    k = x['t'] + x['n']
+                    if k not in seen:
+                        final_list.append(x); seen.add(k)
+                final_list.sort(key=lambda k: k['t'])
+                
+                if not final_list: continue
+                
+                desc_title = dir_titles[d_key]
+                if type_titles[t_key]:
+                    desc_title += f" {type_titles[t_key]}"
 
-            results.append({
-                "name": info['name'], "desc": dir_titles[d_key], "type": "all",
-                "times": final_list, "url": info['url'], "prov": "intercity", "notes": footnotes_map,
-                "price": price_text
-            })
+                results.append({
+                    "name": info['name'], "desc": desc_title, "type": t_key,
+                    "times": final_list, "url": info['url'], "prov": "intercity", "notes": footnotes_map,
+                    "price": price_text
+                })
         return results
