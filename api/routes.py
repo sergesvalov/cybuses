@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, BackgroundTasks
 from services.cache import CacheManager
 from services.scraper import ScraperService
