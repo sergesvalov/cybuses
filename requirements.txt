@@ -5,7 +5,7 @@ beautifulsoup4
 pdfplumber
 requests
 mcp[cli]
-cloudscraper
+curl_cffi
 sqlalchemy
 asyncpg
 alembic
