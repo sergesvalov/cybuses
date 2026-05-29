@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin - Cyprus Buses</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+
+<body>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <div class="container admin-container">
+        <header class="header">
+            <h2>Bus Admin</h2>
+            <a href="/" class="icon-btn" aria-label="Back to App">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
+        </header>
+
+        <main id="admin-app">
+            <!-- Routes Section -->
+            <section class="admin-section">
+                <div class="section-header">
+                    <h3>Routes</h3>
+                    <button class="btn-primary" id="btn-add-route">+ New Route</button>
+                </div>
+                <div id="route-list" class="list-container">
+                    <div class="loader">Loading...</div>
+                </div>
+            </section>
+
+            <!-- Directions Section (Hidden by default) -->
+            <section class="admin-section hidden" id="directions-section">
+                <div class="section-header">
+                    <h3>Directions for: <span id="current-route-name"></span></h3>
+                    <button class="btn-primary" id="btn-add-dir">+ New Direction</button>
+                </div>
+                <div id="dir-list" class="list-container"></div>
+            </section>
+
+            <!-- Departures Section (Hidden by default) -->
+            <section class="admin-section hidden" id="departures-section">
+                <div class="section-header">
+                    <h3>Departures for: <span id="current-dir-name"></span></h3>
+                    <button class="btn-primary" id="btn-add-dep">+ New Departure</button>
+                </div>
+                <div id="dep-list" class="time-container"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Forms -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-overlay" id="am-overlay"></div>
+        <div class="m-content">
+            <h3 id="am-title" class="m-title"></h3>
+            <form id="am-form">
+                <div id="am-fields"></div>
+                <div class="m-actions">
+                    <button type="button" id="am-close" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/admin.js"></script>
+</body>
+
+</html>

@@ -30,6 +30,7 @@ export class FilterBar {
                     <button class="pill-btn" data-filter="p" data-val="intercity">Intercity</button>
                     <button class="pill-btn" data-filter="p" data-val="osypa">City (Osypa)</button>
                     <button class="pill-btn" data-filter="p" data-val="shuttle">Airport</button>
+                    <button class="pill-btn" data-filter="p" data-val="manual">Custom</button>
                 </div>
             </div>
 
