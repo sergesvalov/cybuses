@@ -1,6 +1,9 @@
 # config.py
+import os
 
-# Настройка маршрутов
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://cybase:cybase@db:5432/cybase")
+
+# Справочник маршрутов (какие парсить и какие города)
 # provider: указывает, какой парсер использовать (intercity, osypa, shuttle)
 # target: вспомогательный маркер для логики парсинга (city, airport, etc)
 

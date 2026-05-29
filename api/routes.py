@@ -16,7 +16,7 @@ async def update_task():
     try:
         print(">>> Starting update task...")
         data, has_errors = await scraper_service.get_all_data()
-        cache_manager.update_cache(data, has_errors)
+        await cache_manager.update_cache(data, has_errors)
     except Exception as e:
         print(f"Update failed: {e}")
     finally: 
@@ -25,15 +25,17 @@ async def update_task():
 @router.get("/data")
 async def get_data(bt: BackgroundTasks):
     """Returns data from memory. If empty, waits for update."""
-    if not cache_manager.get_data():
+    data = await cache_manager.get_data()
+    if not data:
         if not cache_manager.is_updating(): 
             # If nothing triggered the update yet, do it now and wait
             await update_task()
         else:
             # If it's already updating, wait for it to finish
             await cache_manager.wait_for_update()
+        data = await cache_manager.get_data()
     
-    return cache_manager.get_data()
+    return data
 
 @router.post("/refresh")
 async def refresh(bt: BackgroundTasks):

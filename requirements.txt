@@ -6,3 +6,7 @@ pdfplumber
 requests
 mcp[cli]
 cloudscraper
+sqlalchemy
+asyncpg
+alembic
+greenlet

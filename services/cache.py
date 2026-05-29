@@ -1,12 +1,12 @@
-import json
-import os
 import asyncio
-
-CACHE_FILE = "bus_cache.json"
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import delete
+from database import AsyncSessionLocal
+from models import Route, Direction, Departure
 
 class CacheManager:
     def __init__(self):
-        self._memory_cache = []
         self._updating = False
         self._update_event = None
 
@@ -20,51 +20,84 @@ class CacheManager:
         await self._get_event().wait()
 
     def load_from_disk(self):
-        """Reads the cache file from disk and saves it to memory."""
-        if os.path.exists(CACHE_FILE):
-            try:
-                with open(CACHE_FILE, 'r', encoding='utf-8') as f: 
-                    self._memory_cache = json.load(f)
-                print(f">>> Cache loaded from disk: {len(self._memory_cache)} routes")
-            except Exception as e:
-                print(f"Error loading cache from disk: {e}")
-                self._memory_cache = []
-        else:
-            print(">>> No cache file found on disk.")
+        # Deprecated. No-op for compatibility.
+        print(">>> load_from_disk() called, ignoring since we use PostgreSQL")
 
-    def update_cache(self, data, has_errors=False):
-        """Updates the memory and disk caches with new data."""
+    async def update_cache(self, data, has_errors=False):
+        """Updates the postgres database with new data."""
         if not data:
             print(">>> Update returned empty data. Keeping old cache.")
             return
 
-        if has_errors and self._memory_cache:
-            print(">>> Parsers encountered errors. Merging successful results with old cache.")
-            # Map old cache by unique key to preserve it
-            old_routes = {(r['prov'], r['name'], r['desc']): r for r in self._memory_cache}
-            
-            # Override with successful new pulls
-            for new_r in data:
-                old_routes[(new_r['prov'], new_r['name'], new_r['desc'])] = new_r
+        async with AsyncSessionLocal() as session:
+            try:
+                for item in data:
+                    # Find or create Route
+                    result = await session.execute(select(Route).where(Route.name == item['name'], Route.provider == item['prov']))
+                    route = result.scalars().first()
+                    if not route:
+                        route = Route(provider=item['prov'], name=item['name'], url=item.get('url'))
+                        session.add(route)
+                        await session.flush()
+                    else:
+                        if item.get('url') and route.url != item['url']:
+                            route.url = item['url']
+                    
+                    # Find or create Direction
+                    result = await session.execute(select(Direction).where(Direction.route_id == route.id, Direction.description == item['desc'], Direction.day_type == item['type']))
+                    direction = result.scalars().first()
+                    if direction:
+                        # Clear old departures
+                        await session.execute(delete(Departure).where(Departure.direction_id == direction.id))
+                    else:
+                        direction = Direction(route_id=route.id, description=item['desc'], day_type=item['type'])
+                        session.add(direction)
+                        await session.flush()
+                    
+                    # Add new departures
+                    for t in item['times']:
+                        note_txt = t.get('note_txt') or item.get('notes', {}).get(t.get('n', ''), '')
+                        dep = Departure(direction_id=direction.id, time=t['t'], note_symbol=t.get('n', ''), note_text=note_txt)
+                        session.add(dep)
                 
-            merged_data = list(old_routes.values())
-            self._memory_cache = merged_data
-            data_to_save = merged_data
-        else:
-            self._memory_cache = data
-            data_to_save = data
-            
-        try:
-            tmp = CACHE_FILE + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as f: 
-                json.dump(data_to_save, f, ensure_ascii=False, indent=2)
-            os.replace(tmp, CACHE_FILE)
-            print(f">>> Cache Updated Successfully. Routes: {len(data_to_save)}")
-        except Exception as e:
-            print(f"Error saving cache to disk: {e}")
+                await session.commit()
+                print(f">>> Cache Updated Successfully in PostgreSQL. Processed {len(data)} routes/directions.")
+            except Exception as e:
+                await session.rollback()
+                print(f"Error saving cache to DB: {e}")
 
-    def get_data(self):
-        return self._memory_cache
+    async def get_data(self):
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Route).options(selectinload(Route.directions).selectinload(Direction.departures)))
+            routes = result.scalars().all()
+            
+            data = []
+            for r in routes:
+                for d in r.directions:
+                    times = []
+                    notes = {}
+                    for dep in d.departures:
+                        times.append({
+                            "t": dep.time,
+                            "n": dep.note_symbol,
+                            "f": dep.time + dep.note_symbol,
+                            "note_txt": dep.note_text
+                        })
+                        if dep.note_symbol and dep.note_text:
+                            notes[dep.note_symbol] = dep.note_text
+                    
+                    times.sort(key=lambda x: x["t"])
+                    
+                    data.append({
+                        "prov": r.provider,
+                        "name": r.name,
+                        "desc": d.description,
+                        "type": d.day_type,
+                        "url": r.url,
+                        "times": times,
+                        "notes": notes
+                    })
+            return data
 
     def set_updating(self, is_updating: bool):
         self._updating = is_updating

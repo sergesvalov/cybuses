@@ -1,6 +1,13 @@
 #!/bin/bash
 # Start both FastAPI app and MCP server
 
+echo ">>> Running database migrations..."
+python migrate.py
+if [ $? -ne 0 ]; then
+    echo "Migrations failed, aborting startup."
+    exit 1
+fi
+
 echo ">>> Starting MCP server on port 8999..."
 python mcp_server.py &
 

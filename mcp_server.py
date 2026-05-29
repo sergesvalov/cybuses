@@ -78,7 +78,7 @@ async def _fetch_schedule(route_key: str) -> list[dict]:
     """Fetch schedule from shared cache, fallback to scraper."""
     # Always try to load latest from disk (in case main API updated it)
     cache_manager.load_from_disk()
-    data = cache_manager.get_data()
+    data = await cache_manager.get_data()
     
     info = INTERCITY_ROUTES[route_key]
     route_name = info['name']
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     log.info(f"Transport: sse")
     log.info(f"Endpoint:  http://0.0.0.0:8999/sse")
     log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
-    log.info(f"Cache TTL: {CACHE_TTL}")
+    log.info("=" * 50)
     log.info("=" * 50)
     log.info("⚠️  This is NOT a web page! Do NOT open in browser.")
     log.info("    Connect via MCP client (Python SDK / Claude Desktop)")
