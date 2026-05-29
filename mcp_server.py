@@ -71,7 +71,7 @@ mcp = FastMCP(
 cache_manager = CacheManager()
 scraper_service = ScraperService()
 
-INTERCITY_ROUTES = {k: v for k, v in ROUTES.items() if v.get("provider") == "intercity"}
+ALL_ROUTES = ROUTES
 
 
 async def _fetch_schedule(route_key: str) -> list[dict]:
@@ -80,12 +80,12 @@ async def _fetch_schedule(route_key: str) -> list[dict]:
     cache_manager.load_from_disk()
     data = await cache_manager.get_data()
     
-    info = INTERCITY_ROUTES[route_key]
+    info = ALL_ROUTES[route_key]
     route_name = info['name']
     
     if data:
         # Filter for the requested route_key
-        route_data = [d for d in data if d.get('prov') == 'intercity' and d.get('name') == route_name]
+        route_data = [d for d in data if d.get('prov') == info.get('provider') and d.get('name') == route_name]
         if route_data:
             log.info(f"Cache HIT for '{route_key}' (from shared bus_cache.json)")
             return route_data
@@ -145,14 +145,14 @@ def _format_schedule_text(data: list[dict]) -> str:
 # ── MCP Tools ────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-async def get_intercity_routes() -> str:
+async def get_routes() -> str:
     """
-    Возвращает список доступных междугородних маршрутов автобусов (Intercity).
+    Возвращает список доступных маршрутов автобусов (Intercity и Osypa).
     Используй этот инструмент чтобы узнать какие маршруты доступны.
     """
-    log.info("Tool called: get_intercity_routes")
-    lines = ["📋 Доступные маршруты Intercity:", ""]
-    for key, info in INTERCITY_ROUTES.items():
+    log.info("Tool called: get_routes")
+    lines = ["📋 Доступные маршруты:", ""]
+    for key, info in ALL_ROUTES.items():
         lines.append(f"• {info['name']} — route_key: \"{key}\"")
         lines.append(f"  URL: {info['url']}")
     lines.append("")
@@ -171,13 +171,13 @@ async def get_schedule(route: str) -> str:
     """
     log.info(f"Tool called: get_schedule(route='{route}')")
     route = route.lower().strip()
-    if route not in INTERCITY_ROUTES:
-        available = ", ".join(INTERCITY_ROUTES.keys())
+    if route not in ALL_ROUTES:
+        available = ", ".join(ALL_ROUTES.keys())
         log.warning(f"Unknown route '{route}', available: {available}")
         return f"❌ Неизвестный маршрут '{route}'. Доступные: {available}"
 
     data = await _fetch_schedule(route)
-    header = f"📅 Расписание: {INTERCITY_ROUTES[route]['name']}\n"
+    header = f"📅 Расписание: {ALL_ROUTES[route]['name']}\n"
     result_text = header + _format_schedule_text(data)
     snippet = result_text[:100].replace('\n', ' ')
     log.info(f"get_schedule returning {len(result_text)} chars. Snippet: {snippet}...")
@@ -200,8 +200,8 @@ async def get_nearest_bus(
     """
     log.info(f"Tool called: get_nearest_bus(route='{route}', direction='{direction}')")
     route = route.lower().strip()
-    if route not in INTERCITY_ROUTES:
-        available = ", ".join(INTERCITY_ROUTES.keys())
+    if route not in ALL_ROUTES:
+        available = ", ".join(ALL_ROUTES.keys())
         log.warning(f"Unknown route '{route}', available: {available}")
         return f"❌ Неизвестный маршрут '{route}'. Доступные: {available}"
 
@@ -219,15 +219,19 @@ async def get_nearest_bus(
         # Filter by direction if specified
         if direction:
             direction = direction.lower().strip()
-            city1_name = INTERCITY_ROUTES[route]['city1'].title()
-            city2_name = INTERCITY_ROUTES[route]['city2'].title()
-            
-            if direction in ("dir1", "from_paphos") and "➝" in desc and desc.startswith(city1_name):
-                pass  # match
-            elif direction in ("dir2", "to_paphos") and "➝" in desc and desc.startswith(city2_name):
-                pass  # match
+            if 'city1' in ALL_ROUTES[route] and 'city2' in ALL_ROUTES[route]:
+                city1_name = ALL_ROUTES[route]['city1'].title()
+                city2_name = ALL_ROUTES[route]['city2'].title()
+                
+                if direction in ("dir1", "from_paphos") and "➝" in desc and desc.startswith(city1_name):
+                    pass  # match
+                elif direction in ("dir2", "to_paphos") and "➝" in desc and desc.startswith(city2_name):
+                    pass  # match
+                else:
+                    continue
             else:
-                continue
+                if direction not in desc.lower():
+                    continue
 
         times = dir_data.get("times", [])
         if not times:
@@ -274,7 +278,7 @@ async def get_nearest_bus(
     if not results:
         return "❌ Нет данных для указанного направления."
 
-    header = f"🕐 Ближайшие автобусы ({now.strftime('%H:%M')}) — {INTERCITY_ROUTES[route]['name']}\n\n"
+    header = f"🕐 Ближайшие автобусы ({now.strftime('%H:%M')}) — {ALL_ROUTES[route]['name']}\n\n"
     result_text = header + "\n".join(results).strip()
     snippet = result_text[:100].replace('\n', ' ')
     log.info(f"get_nearest_bus returning {len(result_text)} chars. Snippet: {snippet}...")
@@ -288,7 +292,7 @@ if __name__ == "__main__":
     log.info("MCP CyBuses Intercity Server starting...")
     log.info(f"Transport: sse")
     log.info(f"Endpoint:  http://0.0.0.0:8999/sse")
-    log.info(f"Routes:    {', '.join(INTERCITY_ROUTES.keys())}")
+    log.info(f"Routes:    {', '.join(ALL_ROUTES.keys())}")
     log.info("=" * 50)
     log.info("=" * 50)
     log.info("⚠️  This is NOT a web page! Do NOT open in browser.")

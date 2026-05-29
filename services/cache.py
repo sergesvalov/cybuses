@@ -32,6 +32,10 @@ class CacheManager:
         async with AsyncSessionLocal() as session:
             try:
                 for item in data:
+                    if item.get('hasError'):
+                        print(f"Skipping update for {item.get('name')} due to scraper error, preserving old data.")
+                        continue
+
                     # Find or create Route
                     result = await session.execute(select(Route).where(Route.name == item['name'], Route.provider == item['prov']))
                     route = result.scalars().first()

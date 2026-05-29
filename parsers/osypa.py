@@ -27,6 +27,8 @@ class OsypaParser(BaseParser):
 
             raw_times = self.extract_times(txt)
             if raw_times:
+                if "00:01" in str(raw_times) or "00:66" in str(raw_times):
+                    print(f"DEBUG BAD TIMES: {txt}")
                 if last_header not in grouped_times: grouped_times[last_header] = []
                 for t, stars in raw_times:
                     nt = self.normalize_time(t)

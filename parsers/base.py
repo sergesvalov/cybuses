@@ -28,7 +28,7 @@ class BaseParser:
         "Upgrade-Insecure-Requests": "1"
     }
     
-    TIME_REGEX = re.compile(r'(\d{1,2}[:.]\d{2})([\*]*)')
+    TIME_REGEX = re.compile(r'\b((?:[01]?\d|2[0-3]):[0-5]\d)([\*]*)')
 
     async def get_soup(self, session: aiohttp.ClientSession, url: str):
         # We ignore aiohttp session here because it gets blocked by Cloudflare.
