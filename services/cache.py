@@ -91,7 +91,9 @@ class CacheManager:
                             notes[dep.note_symbol] = dep.note_text
                     
                     times.sort(key=lambda x: x["t"])
-                    
+                    if d.description == "Сбой загрузки расписания" or "\ufffd" in d.description:
+                        continue
+                        
                     data.append({
                         "prov": r.provider,
                         "name": r.name,

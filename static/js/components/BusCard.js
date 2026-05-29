@@ -74,11 +74,32 @@ export class BusCard {
             ? `<div class="c-error-banner">⚠️ ${escapeHtml(this.data.errorMsg)}</div>`
             : '';
 
+        let displayTitle = safeTitle;
+        let displayDesc = safeDesc;
+
+        // Remove duplicate day labels from description
+        const dayStrings = ['(Будни)', '(Сб/Вс)', '(Пн)', '(Вт)', '(Ср)', '(Чт)', '(Пт)', '(Сб)', '(Вс)', '(Ежедневно)', '(Daily)', '(Weekday)', '(Weekend)'];
+        dayStrings.forEach(ds => {
+            if (displayDesc.includes(ds)) {
+                displayDesc = displayDesc.replace(ds, '').trim();
+            }
+        });
+
+        // Merge title and desc if desc is just a direction (intercity)
+        if (displayTitle.includes('↔') && displayDesc.includes('➝')) {
+            displayTitle = displayDesc;
+            displayDesc = '';
+        } else if (displayDesc === 'Route Schedule' || displayDesc === 'All stops') {
+            displayDesc = ''; // Hide useless generic descriptions
+        }
+
+        const descHtml = displayDesc ? `<div class="c-desc">${displayDesc}</div>` : '';
+
         card.innerHTML = `
             <div class="c-head">
                 <div>
-                    <span class="c-title">${safeTitle} ${dayBadge} ${priceHtml} ${durationHtml}</span>
-                    <div class="c-desc">${safeDesc}</div>
+                    <span class="c-title">${displayTitle} ${dayBadge} ${priceHtml} ${durationHtml}</span>
+                    ${descHtml}
                 </div>
                 <div class="c-actions">
                     <button class="icon-btn fav-btn ${isFav}" data-key="${favKey}" aria-label="Favorite route">
