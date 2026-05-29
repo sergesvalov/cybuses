@@ -22,6 +22,14 @@ async def update_task():
     finally: 
         cache_manager.set_updating(False)
 
+async def periodic_update():
+    """Loops infinitely to update data periodically."""
+    while True:
+        print(">>> Running scheduled periodic update...")
+        await update_task()
+        # Sleep for 1 hour (3600 seconds) before the next update
+        await asyncio.sleep(3600)
+
 @router.get("/data")
 async def get_data(bt: BackgroundTasks):
     """Returns data from memory. If empty, waits for update."""
