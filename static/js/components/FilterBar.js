@@ -19,6 +19,7 @@ export class FilterBar {
                     <button class="pill-btn" data-filter="c" data-val="limassol">Лимассол</button>
                     <button class="pill-btn" data-filter="c" data-val="nicosia">Никосия</button>
                     <button class="pill-btn" data-filter="c" data-val="larnaca">Ларнака</button>
+                    <button class="pill-btn" data-filter="c" data-val="paralimni">Паралимни / Айя-Напа</button>
                 </div>
             </div>
 
