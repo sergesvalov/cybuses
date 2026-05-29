@@ -59,7 +59,7 @@ mcp = FastMCP(
     port=8999,
     instructions=(
         "This MCP server provides real-time intercity bus schedules for Cyprus. "
-        "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol. "
+        "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol, Larnaca ↔ Limassol, Larnaca ↔ Paralimni, Nicosia ↔ Paralimni, Paphos ↔ Paralimni. "
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
     ),
@@ -167,7 +167,7 @@ async def get_schedule(route: str) -> str:
     Включает оба направления, времена отправления, цены и примечания.
 
     Args:
-        route: Ключ маршрута — "limassol", "nicosia", "larnaca" или "nicosia_limassol"
+        route: Ключ маршрута — "limassol", "nicosia", "larnaca", "nicosia_limassol", "larnaca_limassol", "larnaca_paralimni", "nicosia_paralimni" или "paphos_paralimni"
     """
     log.info(f"Tool called: get_schedule(route='{route}')")
     route = route.lower().strip()
@@ -194,7 +194,7 @@ async def get_nearest_bus(
     Возвращает время отправления и сколько минут до него осталось.
 
     Args:
-        route: Ключ маршрута — "limassol", "nicosia", "larnaca" или "nicosia_limassol"
+        route: Ключ маршрута — "limassol", "nicosia", "larnaca", "nicosia_limassol", "larnaca_limassol", "larnaca_paralimni", "nicosia_paralimni" или "paphos_paralimni"
         direction: Направление — "dir1" (или "from_paphos") / "dir2" (или "to_paphos"). 
                    Если не указано, показывает ближайшие для обоих направлений.
     """

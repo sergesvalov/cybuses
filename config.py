@@ -24,7 +24,7 @@ ROUTES = {
     },
     "larnaca": {
         "name": "Paphos ↔ Larnaca", 
-        "url": "https://intercity-buses.com/en/routes/%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%cf%80%ce%ac%cf%86%ce%bf%cf%82-%ce%bb%ce%ac%cf%81%ce%bd%ce%b1%ce%ba%ce%b1-%ce%b1%ce%b3%ce%af%ce%b1-%ce%bd%ce%ac%cf%80/", 
+        "url": "https://intercity-buses.com/en/routes/larnaca-limassol-paphos-paphos-limassol-larnaca/", 
         "city1": "paphos", 
         "city2": "larnaca",
         "provider": "intercity",
@@ -37,6 +37,38 @@ ROUTES = {
         "city2": "limassol",
         "provider": "intercity",
         "duration": "~ 1h 45m"
+    },
+    "larnaca_limassol": {
+        "name": "Larnaca ↔ Limassol",
+        "url": "https://intercity-buses.com/en/routes/larnaca-limassol-limassol-larnaca/",
+        "city1": "larnaca",
+        "city2": "limassol",
+        "provider": "intercity",
+        "duration": "~ 1h 30m"
+    },
+    "larnaca_paralimni": {
+        "name": "Larnaca ↔ Paralimni / Ayia Napa",
+        "url": "https://intercity-buses.com/en/routes/larnaca-ayia-napa-paralimni-paralimni-ayia-napa-larnaca/",
+        "city1": "larnaca",
+        "city2": "paralimni",
+        "provider": "intercity",
+        "duration": "~ 1h 15m"
+    },
+    "nicosia_paralimni": {
+        "name": "Nicosia ↔ Paralimni / Ayia Napa",
+        "url": "https://intercity-buses.com/en/routes/nicosia-ayia-napa-paralimni-ayia-napa-paralimni-nicosia/",
+        "city1": "nicosia",
+        "city2": "paralimni",
+        "provider": "intercity",
+        "duration": "~ 1h 30m"
+    },
+    "paphos_paralimni": {
+        "name": "Paphos ↔ Paralimni / Ayia Napa",
+        "url": "https://intercity-buses.com/en/routes/paralimni-ayia-napa-larnaca-paphos-paphos-larnaca-ayia-napa-paralimni/",
+        "city1": "paphos",
+        "city2": "paralimni",
+        "provider": "intercity",
+        "duration": "~ 2h 45m"
     },
     
     # --- OSYPA (Городские автобусы Пафоса) ---
