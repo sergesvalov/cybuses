@@ -57,8 +57,8 @@ The frontend `app.js` polls the `/api/data` endpoint, maintaining a local state 
 
 The project includes a standalone **MCP (Model Context Protocol)** server that exposes intercity bus schedule data to AI assistants (e.g., Telegram bot-secretary, Claude Desktop).
 
-> ⚠️ **MCP is NOT a web page!** Do not open `http://host:8888/mcp` in your browser — you will get a 404.  
-> MCP is a machine-to-machine protocol (POST-based) designed for connecting AI clients.
+> ⚠️ **MCP is NOT a web page!** Do not open `http://host:8999/sse` in your browser.  
+> MCP is a machine-to-machine protocol (SSE-based) designed for connecting AI clients.
 
 ### Running the MCP Server
 
@@ -67,37 +67,37 @@ The project includes a standalone **MCP (Model Context Protocol)** server that e
 python mcp_server.py
 
 # In Docker — runs automatically alongside the main app
-docker run -p 8000:8000 -p 8888:8888 cybuses
+docker run -p 8000:8000 -p 8999:8999 cybuses
 ```
 
-The server starts on `http://0.0.0.0:8888/mcp` using **Streamable HTTP** transport.
+The server starts on `http://0.0.0.0:8999/sse` using **SSE (Server-Sent Events)** transport.
 
 ### Available Tools
 
 | Tool | Parameters | Description |
 |------|-----------|----------|
-| `get_intercity_routes` | — | Lists available routes: Limassol, Nicosia, Larnaca |
+| `get_routes` / `get_intercity_routes` | — | Lists available routes (Limassol, Nicosia, Larnaca, Paralimni, etc.) |
 | `get_schedule` | `route` | Full schedule (both directions, prices, footnotes) |
 | `get_nearest_bus` | `route`, `direction?` | Nearest bus departure with countdown in minutes |
 
-**Route keys (`route`):** `"limassol"`, `"nicosia"`, `"larnaca"`  
-**Direction keys (`direction`):** `"from_paphos"`, `"to_paphos"` (optional)
+**Route keys (`route`):** `"limassol"`, `"nicosia"`, `"larnaca"`, `"nicosia_limassol"`, `"larnaca_limassol"`, `"larnaca_paralimni"`, `"nicosia_paralimni"`, `"paphos_paralimni"`  
+**Direction keys (`direction`):** `"from_paphos"` / `"dir1"`, `"to_paphos"` / `"dir2"` (optional)
 
 ### Connecting from Python (MCP Client)
 
 ```python
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.sse import sse_client
 from mcp import ClientSession
 
 async def get_bus_schedule():
-    url = "http://<host>:8888/mcp"  # Replace <host> with your server's address
+    url = "http://<host>:8999/sse"  # Replace <host> with your server's address
     
-    async with streamablehttp_client(url) as (read, write, _):
+    async with sse_client(url) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             
             # Get available routes
-            routes = await session.call_tool("get_intercity_routes", {})
+            routes = await session.call_tool("get_routes", {})
             print(routes.content[0].text)
             
             # Get schedule for Limassol
@@ -129,13 +129,13 @@ Add this helper class to manage connections and invoke MCP tools:
 # mcp_client.py
 import os
 import logging
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.sse import sse_client
 from mcp import ClientSession
 
 logger = logging.getLogger(__name__)
 
-# CyBuses MCP server URL (e.g., http://localhost:8888/mcp or your container IP)
-CYBUSES_MCP_URL = os.getenv("CYBUSES_MCP_URL", "http://localhost:8888/mcp")
+# CyBuses MCP server URL (e.g., http://localhost:8999/sse or your container IP)
+CYBUSES_MCP_URL = os.getenv("CYBUSES_MCP_URL", "http://localhost:8999/sse")
 
 class CyBusesClient:
     async def call_tool(self, tool_name: str, arguments: dict = None) -> str:
@@ -143,7 +143,7 @@ class CyBusesClient:
         if arguments is None:
             arguments = {}
         try:
-            async with streamablehttp_client(CYBUSES_MCP_URL) as (read, write, _):
+            async with sse_client(CYBUSES_MCP_URL) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     result = await session.call_tool(tool_name, arguments)
@@ -194,9 +194,9 @@ async def get_nearest_bus_tool(route: str, direction: str = None) -> str:
 #### 4. Environment Variables
 When running the bot container or a local process, add an environment variable pointing to the `cybuses` server:
 ```bash
-CYBUSES_MCP_URL=http://<ip-address-of-cybuses-server>:8888/mcp
+CYBUSES_MCP_URL=http://<ip-address-of-cybuses-server>:8999/sse
 ```
-*(If both the bot and the cybuses server run inside the same Docker network, use the service name: `http://cybuses:8888/mcp`)*
+*(If both the bot and the cybuses server run inside the same Docker network, use the service name: `http://cybuses:8999/sse`)*
 
 
 ### Example `get_schedule` Output

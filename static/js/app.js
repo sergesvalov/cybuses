@@ -38,14 +38,30 @@ class BusApp {
             }
         });
 
-        // Search input logic
-        this.searchInput.addEventListener('input', (e) => {
-            this.searchQuery = e.target.value.toLowerCase().trim();
+        // Debounce helper
+        const debounce = (fn, delay = 150) => {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        };
+
+        // Search input logic with debounce
+        const debouncedSearch = debounce((query) => {
+            this.searchQuery = query;
             this.render();
+        }, 150);
+
+        this.searchInput.addEventListener('input', (e) => {
+            debouncedSearch(e.target.value.toLowerCase().trim());
         });
 
-        // Initialize polling for time highlighting
+        // Initialize polling for time highlighting, pausing when tab is inactive
         setInterval(() => this.highlightNext(), 60000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) this.highlightNext();
+        });
     }
 
     getCurrentDayType() {
@@ -201,15 +217,15 @@ class BusApp {
     }
 
     highlightNext() {
+        if (document.hidden) return;
         const now = new Date();
         const curMins = now.getHours() * 60 + now.getMinutes();
 
         document.querySelectorAll('.card').forEach(card => {
             let foundNext = false;
             card.querySelectorAll('.t-btn').forEach(btn => {
-                const innerT = btn.childNodes[0].nodeValue || "";
-                const txt = innerT.replace(/[^\d:]/g, '');
-                if (!txt || txt.length < 4) return;
+                const txt = btn.dataset.time;
+                if (!txt || txt.length < 4 || !txt.includes(':')) return;
 
                 const [h, m] = txt.split(':').map(Number);
                 let busMins = h * 60 + m;

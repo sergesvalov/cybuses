@@ -23,47 +23,38 @@ from datetime import datetime, timedelta
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-# Задаем переменные окружения ДО импорта и создания FastMCP
-os.environ["FASTMCP_HOST"] = "0.0.0.0"
-os.environ["FASTMCP_PORT"] = "8999"
-
-from mcp.server.fastmcp import FastMCP
-
 # --- Reuse project internals ---
-from config import ROUTES
+from config import ROUTES, MCP_HOST, MCP_PORT
 from services.cache import CacheManager
 from services.scraper import ScraperService
+
+os.environ["FASTMCP_HOST"] = MCP_HOST
+os.environ["FASTMCP_PORT"] = str(MCP_PORT)
+
+from mcp.server.fastmcp import FastMCP
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 log = logging.getLogger("mcp-cybuses")
 
-# Добавляем подробное логирование для внутренних веб-компонентов
-logging.getLogger("mcp").setLevel(logging.DEBUG)
-logging.getLogger("uvicorn").setLevel(logging.DEBUG)
-logging.getLogger("uvicorn.access").setLevel(logging.DEBUG)
-logging.getLogger("starlette").setLevel(logging.DEBUG)
-logging.getLogger("httpx").setLevel(logging.DEBUG)
-logging.getLogger("httpcore").setLevel(logging.DEBUG)
-
 # ── Server setup ────────────────────────────────────────────────────────────
 
 mcp = FastMCP(
     name="CyBuses Intercity",
-    host="0.0.0.0",
-    port=8999,
+    host=MCP_HOST,
+    port=MCP_PORT,
     instructions=(
         "This MCP server provides real-time intercity bus schedules for Cyprus. "
         "Routes: Paphos ↔ Limassol, Paphos ↔ Nicosia, Paphos ↔ Larnaca, Nicosia ↔ Limassol, Larnaca ↔ Limassol, Larnaca ↔ Paralimni, Nicosia ↔ Paralimni, Paphos ↔ Paralimni. "
         "Use get_intercity_routes to list routes, get_schedule to see full timetable, "
         "and get_nearest_bus to find the next departure."
     ),
-    sse_path="/sse"  # Стандартный путь для SSE
+    sse_path="/sse"
 )
 
 # ── Simple in-memory cache (TTL = 5 min) ────────────────────────────────────
@@ -76,8 +67,6 @@ ALL_ROUTES = ROUTES
 
 async def _fetch_schedule(route_key: str) -> list[dict]:
     """Fetch schedule from shared cache, fallback to scraper."""
-    # Always try to load latest from disk (in case main API updated it)
-    cache_manager.load_from_disk()
     data = await cache_manager.get_data()
     
     info = ALL_ROUTES[route_key]
@@ -87,7 +76,7 @@ async def _fetch_schedule(route_key: str) -> list[dict]:
         # Filter for the requested route_key
         route_data = [d for d in data if d.get('prov') == info.get('provider') and d.get('name') == route_name]
         if route_data:
-            log.info(f"Cache HIT for '{route_key}' (from shared bus_cache.json)")
+            log.info(f"Cache HIT for '{route_key}'")
             return route_data
 
     log.info(f"Cache MISS for '{route_key}', fetching from website...")
@@ -158,6 +147,14 @@ async def get_routes() -> str:
     lines.append("")
     lines.append("Используй get_schedule(route) или get_nearest_bus(route) для подробностей.")
     return "\n".join(lines)
+
+
+@mcp.tool()
+async def get_intercity_routes() -> str:
+    """
+    Возвращает список доступных междугородних маршрутов Кипра (псевдоним get_routes).
+    """
+    return await get_routes()
 
 
 @mcp.tool()

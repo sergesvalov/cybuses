@@ -8,9 +8,9 @@ async def main():
         await session.execute(text("DELETE FROM departures WHERE direction_id IN (SELECT id FROM directions WHERE description LIKE '%Сбой загрузки%')"))
         await session.execute(text("DELETE FROM directions WHERE description LIKE '%Сбой загрузки%'"))
         
-        # OSYPA had an error character: 
-        await session.execute(text("DELETE FROM departures WHERE direction_id IN (SELECT id FROM directions WHERE description LIKE '%%')"))
-        await session.execute(text("DELETE FROM directions WHERE description LIKE '%%'"))
+        # OSYPA replacement character cleanup:
+        await session.execute(text("DELETE FROM departures WHERE direction_id IN (SELECT id FROM directions WHERE description LIKE '%\ufffd%')"))
+        await session.execute(text("DELETE FROM directions WHERE description LIKE '%\ufffd%'"))
         
         await session.commit()
         print("Database cleaned.")

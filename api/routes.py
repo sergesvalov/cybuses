@@ -1,58 +1,70 @@
 import asyncio
-from fastapi import APIRouter, BackgroundTasks
+import logging
+from fastapi import APIRouter, BackgroundTasks, Response
 from services.cache import CacheManager
 from services.scraper import ScraperService
 
+logger = logging.getLogger("api.routes")
 router = APIRouter()
 
 # Instantiate core services
 cache_manager = CacheManager()
 scraper_service = ScraperService()
 
+
 async def update_task():
-    """Background task: downloads fresh data, updates memory and disk caches"""
+    """Background task: downloads fresh data, updates database and in-memory cache."""
     if cache_manager.is_updating():
         return
     cache_manager.set_updating(True)
     try:
-        print(">>> Starting update task...")
+        logger.info(">>> Starting scheduled scraper task...")
         data, has_errors = await scraper_service.get_all_data()
         await cache_manager.update_cache(data, has_errors)
     except Exception as e:
-        print(f"Update failed: {e}")
-    finally: 
+        logger.error(f"Update failed: {e}", exc_info=True)
+    finally:
         cache_manager.set_updating(False)
 
+
 async def periodic_update():
-    """Loops infinitely to update data periodically."""
+    """Loops to update data periodically every hour."""
     while True:
-        print(">>> Running scheduled periodic update...")
-        await update_task()
-        # Sleep for 1 hour (3600 seconds) before the next update
+        try:
+            logger.info(">>> Running scheduled periodic update...")
+            await update_task()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Periodic update error: {e}")
+        # Sleep for 1 hour (3600 seconds)
         await asyncio.sleep(3600)
 
+
 @router.get("/data")
-async def get_data(bt: BackgroundTasks):
-    """Returns data from memory. If empty, waits for update."""
+async def get_data(response: Response):
+    """Returns route data from high-speed in-memory cache. If empty, waits for update."""
     data = await cache_manager.get_data()
     if not data:
-        if not cache_manager.is_updating(): 
-            # If nothing triggered the update yet, do it now and wait
+        if not cache_manager.is_updating():
             await update_task()
         else:
-            # If it's already updating, wait for it to finish
             await cache_manager.wait_for_update()
         data = await cache_manager.get_data()
-    
+
+    # Short client cache header for responsiveness while saving bandwidth
+    response.headers["Cache-Control"] = "public, max-age=30"
     return data
+
 
 @router.post("/refresh")
 async def refresh(bt: BackgroundTasks):
-    """Manual refresh triggered by the user."""
-    if not cache_manager.is_updating(): 
+    """Manual refresh triggered by user."""
+    if not cache_manager.is_updating():
         bt.add_task(update_task)
         return {"status": "started"}
     return {"status": "busy"}
+
 
 @router.get("/status")
 def status():

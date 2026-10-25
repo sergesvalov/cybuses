@@ -95,7 +95,7 @@ body {
     border-radius: var(--radius);
     background: var(--surface);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    color: var(--text);
+    color: var(--text-main);
     font-size: 1rem;
     outline: none;
     transition: all 0.3s ease;
@@ -237,6 +237,8 @@ body {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     opacity: 0;
     animation: slideUp 0.5s ease forwards;
+    content-visibility: auto;
+    contain-intrinsic-size: 0 140px;
 }
 
 .card:hover {

@@ -47,11 +47,31 @@ class ScraperService:
 
             url = info.get('url', 'No URL')
             logger.info(f"[{provider_key.upper()}] Fetching: {info['name']} from {url} ...")
-        try:
-            result = await parser.parse(session, info)
-            
-            if not result:
-                logger.warning(f"[{provider_key.upper()}] No data found for {info['name']} (URL: {url})")
+            try:
+                result = await parser.parse(session, info)
+                
+                if not result:
+                    logger.warning(f"[{provider_key.upper()}] No data found for {info['name']} (URL: {url})")
+                    return [{
+                        "name": info['name'],
+                        "desc": "Сбой загрузки расписания",
+                        "type": "all",
+                        "times": [],
+                        "url": info['url'],
+                        "prov": provider_key,
+                        "hasError": True,
+                        "errorMsg": "Временно недоступно (нет данных)"
+                    }]
+                    
+                logger.info(f"[{provider_key.upper()}] Successfully parsed {len(result)} directions for {info['name']}")
+                
+                for item in result:
+                    if 'duration' not in item and 'duration' in info:
+                        item['duration'] = info['duration']
+                        
+                return result
+            except Exception as e:
+                logger.error(f"[{provider_key.upper()}] Critical Error fetching {info['name']} at {url}: {e}", exc_info=True)
                 return [{
                     "name": info['name'],
                     "desc": "Сбой загрузки расписания",
@@ -60,28 +80,14 @@ class ScraperService:
                     "url": info['url'],
                     "prov": provider_key,
                     "hasError": True,
-                    "errorMsg": "Временно недоступно (нет данных)"
+                    "errorMsg": f"Ошибка связи ({type(e).__name__})"
                 }]
-                
-            logger.info(f"[{provider_key.upper()}] Successfully parsed {len(result)} directions for {info['name']}")
-            
-            for item in result:
-                if 'duration' not in item and 'duration' in info:
-                    item['duration'] = info['duration']
-                    
-            return result
-        except Exception as e:
-            logger.error(f"[{provider_key.upper()}] Critical Error fetching {info['name']} at {url}: {e}", exc_info=True)
-            return [{
-                "name": info['name'],
-                "desc": "Сбой загрузки расписания",
-                "type": "all",
-                "times": [],
-                "url": info['url'],
-                "prov": provider_key,
-                "hasError": True,
-                "errorMsg": f"Ошибка связи ({type(e).__name__})"
-            }]
+
+    async def close(self):
+        """Cleanly close all parser sessions."""
+        for parser in self.parser_map.values():
+            if hasattr(parser, 'close'):
+                await parser.close()
 
     async def get_all_data(self):
         start_time = time.time()

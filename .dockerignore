@@ -1,5 +1,13 @@
 __pycache__/
+*.py[cod]
 .git/
-.env
+.gitignore
+.env*
 venv/
+.venv/
 .vscode/
+.idea/
+tests/
+tools/
+*.md
+.pytest_cache/

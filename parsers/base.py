@@ -5,11 +5,25 @@ from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 class BaseParser:
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
     def __init__(self):
         # Using curl_cffi to impersonate Chrome 120 and bypass Cloudflare 403s
         self.session = requests.AsyncSession(impersonate="chrome120")
     
     TIME_REGEX = re.compile(r'\b((?:[01]?\d|2[0-3]):[0-5]\d)([\*]*)')
+
+    async def close(self):
+        """Close the underlying HTTP session."""
+        if self.session:
+            try:
+                await self.session.close()
+            except Exception:
+                pass
 
     async def get_soup(self, session: aiohttp.ClientSession, url: str):
         # We ignore aiohttp session here because it gets blocked by Cloudflare.

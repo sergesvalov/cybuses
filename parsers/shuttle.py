@@ -92,8 +92,6 @@ class ShuttleParser(BaseParser):
         try:
             async with session.get(base_url, headers=self.HEADERS, ssl=False, timeout=15) as r:
                 html = await r.text()
-            from bs4 import BeautifulSoup
-            from urllib.parse import urljoin
             soup = BeautifulSoup(html, 'html.parser')
             pdf_links = []
             
@@ -114,7 +112,8 @@ class ShuttleParser(BaseParser):
 
             if pdf_link:
                 return await self.process_pdf(session, pdf_link, info)
-        except: pass
+        except Exception as e:
+            print(f"Shuttle find PDF error for {base_url}: {e}")
         return self.fallback_link(info, "PDF not found")
 
     def fallback_link(self, info, reason):
