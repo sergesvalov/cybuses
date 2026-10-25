@@ -37,3 +37,13 @@ def test_intercity_extract_footnotes():
     assert "school term" in notes["*"]
     assert "**" in notes
     assert "Polis Chrysochous" in notes["**"]
+
+
+def test_intercity_clean_direction_title():
+    parser = IntercityParser()
+    assert parser.clean_direction_title("ΛΕΜΕΣΟΣ → ΠΑΦΟΣ LIMASSOL → PAFOS") == "Limassol ➝ Paphos"
+    assert parser.clean_direction_title("ΠΑΦΟΣ → ΛΕΜΕΣΟΣ PAFOS → LIMASSOL") == "Paphos ➝ Limassol"
+    assert parser.clean_direction_title("ΛΑΡΝΑΚΑ → ΑΓΙΑ ΝΑΠΑ / ΠΑΡΑΛΙΜΝΙ") == "Larnaca ➝ Paralimni"
+    assert parser.clean_direction_title("ΠΑΡΑΛΙΜΝΙ / ΑΓΙΑ ΝΑΠΑ → ΛΑΡΝΑΚΑ") == "Paralimni ➝ Larnaca"
+    assert parser.clean_direction_title("ΛΑΡΝΑΚΑ → ΛΕΜΕΣΟΣ → ΠΑΦΟΣ") == "Larnaca ➝ Paphos"
+    assert parser.clean_direction_title("NICOSIA → LIMASSOL") == "Nicosia ➝ Limassol"
