@@ -15,14 +15,14 @@ A modern, fast, and fully responsive Progressive Web App (PWA) for viewing up-to
 
 ## 🛠️ Technology Stack
 
-* **Backend:** `Python 3.10+`, `FastAPI`, `aiohttp`, `BeautifulSoup4`, `pdfplumber`
+* **Backend:** `Python 3.14+`, `FastAPI`, `aiohttp`, `BeautifulSoup4`, `pdfplumber`
 * **Frontend:** Vanilla JavaScript (ES6+), semantic HTML5, modern CSS3 (Flexbox/Grid, Animations)
 * **Storage:** In-memory caching with persistent JSON disk-fallback. Client-side `localStorage`.
 
 ## 🚀 Installation & Running
 
 ### Requirements
-* Python 3.10 or higher
+* Python 3.14 or higher
 * `pip` package manager
 
 ### Setup

@@ -10,4 +10,5 @@ sqlalchemy
 asyncpg
 alembic
 greenlet
-python-dotenv
+python-dotenv
+tzdata
