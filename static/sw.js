@@ -1,9 +1,10 @@
-const CACHE_NAME = 'cybuses-v2';
+const CACHE_NAME = 'cybuses-v3';
 const ASSETS = [
     '/',
     '/static/css/style.css',
     '/static/js/app.js',
     '/static/js/api.js',
+    '/static/js/i18n.js',
     '/static/js/components/BusCard.js',
     '/static/js/components/FilterBar.js',
     '/static/js/components/Modal.js',

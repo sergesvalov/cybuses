@@ -54,6 +54,9 @@ async def get_data(response: Response):
 
     # Short client cache header for responsiveness while saving bandwidth
     response.headers["Cache-Control"] = "public, max-age=30"
+    last_updated = cache_manager.get_last_updated()
+    if last_updated:
+        response.headers["X-Last-Updated"] = last_updated
     return data
 
 

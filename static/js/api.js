@@ -1,9 +1,15 @@
 export class Api {
+    static lastUpdated = null;
+
     /**
      * @returns {Promise<Array>} Routes data
      */
     static async fetchData() {
         const res = await fetch('/api/data');
+        const headerTime = res.headers.get('X-Last-Updated');
+        if (headerTime) {
+            Api.lastUpdated = headerTime;
+        }
         return await res.json();
     }
 

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import delete
@@ -14,9 +15,15 @@ class CacheManager:
         self._updating = False
         self._update_event = None
         self._cached_data = None
+        self._last_updated = None
         self._lock = asyncio.Lock()
 
+    def get_last_updated(self) -> str:
+        """Returns ISO string of the last cache update timestamp."""
+        return self._last_updated.isoformat() if self._last_updated else ""
+
     def _get_event(self):
+
         if self._update_event is None:
             self._update_event = asyncio.Event()
             self._update_event.set()
@@ -35,8 +42,13 @@ class CacheManager:
             logger.warning("Update returned empty data. Preserving existing cache.")
             return
 
-        async with AsyncSessionLocal() as session:
-            try:
+        valid_items = [d for d in data if not d.get('hasError')]
+        if valid_items:
+            self._cached_data = valid_items
+            self._last_updated = datetime.now(timezone.utc)
+
+        try:
+            async with AsyncSessionLocal() as session:
                 # Pre-fetch existing routes with directions to minimize DB roundtrips
                 stmt = select(Route).options(selectinload(Route.directions))
                 res = await session.execute(stmt)
@@ -97,13 +109,15 @@ class CacheManager:
                         session.add(dep)
 
                 await session.commit()
+                self._last_updated = datetime.now(timezone.utc)
                 logger.info(f"Cache updated in DB. Processed {len(data)} items.")
 
                 # Refresh in-memory cache directly from DB
                 await self.get_data(force_refresh=True)
-            except Exception as e:
-                await session.rollback()
-                logger.error(f"Error saving cache to DB: {e}", exc_info=True)
+        except Exception as e:
+            logger.warning(f"Database error or unavailable ({e}). Using in-memory cache.")
+
+
 
     async def get_data(self, force_refresh=False):
         """Returns normalized route data from fast memory cache, fallback to database."""
@@ -155,6 +169,8 @@ class CacheManager:
                             })
 
                     self._cached_data = formatted
+                    if self._last_updated is None and formatted:
+                        self._last_updated = datetime.now(timezone.utc)
                     return self._cached_data
             except Exception as e:
                 logger.error(f"Failed to fetch data from DB: {e}")

@@ -37,7 +37,8 @@
     <div class="container">
         <header class="header">
             <h2>Cyprus Buses</h2>
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; gap:10px; align-items: center;">
+                <button class="icon-btn lang-btn" id="lang-btn" aria-label="Switch Language" title="RU / EN">EN</button>
                 <a href="/admin" class="icon-btn" aria-label="Admin Panel" style="display:flex; align-items:center; justify-content:center;">
                     <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                         <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
@@ -65,6 +66,12 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <path d="M21 21l-4.35-4.35"></path>
             </svg>
+        </div>
+
+        <!-- Status Bar with Last Updated & Offline Indicator -->
+        <div class="status-bar" id="status-bar">
+            <span class="update-time" id="update-time"></span>
+            <span class="offline-badge" id="offline-badge" style="display:none">⚡ Офлайн</span>
         </div>
 
         <!-- Filter Components Mount Point -->
