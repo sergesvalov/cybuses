@@ -4,7 +4,7 @@ aiohttp
 beautifulsoup4
 pdfplumber
 requests
-mcp[cli]
+mcp[cli]<2
 curl_cffi
 sqlalchemy
 asyncpg

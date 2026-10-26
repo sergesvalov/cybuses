@@ -80,8 +80,14 @@ pipeline {
                                 docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
 
                                 echo ">>> Starting new container..."
+                                ENV_OPT=""
+                                if [ -f ~/.cybuses.env ]; then
+                                    ENV_OPT="--env-file ~/.cybuses.env"
+                                fi
+
                                 docker run -d \
                                     --name ${CONTAINER_NAME} \
+                                    ${ENV_OPT} \
                                     -p ${APP_PORT}:8000 \
                                     -p 8999:8999 \
                                     --restart unless-stopped \
@@ -99,10 +105,25 @@ pipeline {
             steps {
                 script {
                     echo "Verifying service availability at http://${DEPLOY_SERVER_IP}:${APP_PORT}"
-                    // Wait a few seconds for the app to initialize
-                    sleep 5
-                    // Check the status endpoint; fails the stage if 404 or 500 is returned
-                    sh "curl -f http://${DEPLOY_SERVER_IP}:${APP_PORT}/api/status || echo 'Warning: Service is not responding yet'"
+                    // Retry loop waiting for app to complete warm-up and start serving
+                    sh """
+                        SUCCESS=0
+                        for i in \$(seq 1 10); do
+                            if curl -s -f http://${DEPLOY_SERVER_IP}:${APP_PORT}/api/status > /dev/null; then
+                                echo ">>> Health Check Passed! Service is healthy on port ${APP_PORT}."
+                                SUCCESS=1
+                                break
+                            fi
+                            echo "Waiting for service to respond (attempt \$i/10)..."
+                            sleep 3
+                        done
+
+                        if [ \$SUCCESS -ne 1 ]; then
+                            echo ">>> Error: Health Check Failed! Service is not responding."
+                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${DEPLOY_SERVER_IP} 'docker logs --tail 40 ${CONTAINER_NAME}' || true
+                            exit 1
+                        fi
+                    """
                 }
             }
         }

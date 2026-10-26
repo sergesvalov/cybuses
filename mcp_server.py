@@ -43,7 +43,13 @@ from services.scraper import ScraperService
 os.environ["FASTMCP_HOST"] = MCP_HOST
 os.environ["FASTMCP_PORT"] = str(MCP_PORT)
 
-from mcp.server.fastmcp import FastMCP
+try:
+    from mcp.server.fastmcp import FastMCP
+except (ImportError, ModuleNotFoundError):
+    try:
+        from mcp.server.mcpserver import MCPServer as FastMCP
+    except ImportError:
+        FastMCP = None
 
 # ── Logging setup ───────────────────────────────────────────────────────────
 
