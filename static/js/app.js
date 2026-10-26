@@ -1,5 +1,6 @@
 import { Api } from './api.js';
 import { FilterBar } from './components/FilterBar.js';
+import { RouteFinder } from './components/RouteFinder.js';
 import { BusCard } from './components/BusCard.js';
 import { Modal } from './components/Modal.js';
 import { t, getLang, setLang } from './i18n.js';
@@ -18,6 +19,9 @@ class BusApp {
 
         // Initialize Components
         this.modal = new Modal('modal');
+        this.routeFinder = new RouteFinder('route-finder-container', () => {
+            this.render();
+        });
         this.filterBar = new FilterBar('filter-container', () => {
             this.render();
         });
@@ -92,7 +96,8 @@ class BusApp {
         this.updateLangButton();
         this.updateTexts();
 
-        // Render initial filter DOM
+        // Render initial UI components
+        this.routeFinder.render();
         this.filterBar.render();
 
         // Language toggle
@@ -102,6 +107,7 @@ class BusApp {
                 setLang(next);
                 this.updateLangButton();
                 this.updateTexts();
+                this.routeFinder.render();
                 this.filterBar.render();
                 this.render();
             });
@@ -177,6 +183,11 @@ class BusApp {
         const fData = this.data.reduce((acc, route) => {
             const favKey = `${route.prov}_${route.name}_${route.desc}`;
             const isFav = this.favorites.includes(favKey);
+
+            // RouteFinder (Origin -> Destination) Check
+            if (!this.routeFinder.matchRoute(route)) {
+                return acc;
+            }
 
             // Favorites filter check
             if (state.p === 'favorites') {
@@ -264,7 +275,14 @@ class BusApp {
         });
 
         if (!fData.length) {
-            if (state.p === 'favorites') {
+            const rfState = this.routeFinder.getState();
+            if (rfState.from !== 'any' || rfState.to !== 'any') {
+                this.appEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🎯</div>
+                        <div class="empty-text">${t('noDirectRoutes')}</div>
+                    </div>`;
+            } else if (state.p === 'favorites') {
                 this.appEl.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">⭐</div>

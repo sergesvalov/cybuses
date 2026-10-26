@@ -1,10 +1,11 @@
-const CACHE_NAME = 'cybuses-v3';
+const CACHE_NAME = 'cybuses-v5';
 const ASSETS = [
     '/',
     '/static/css/style.css',
     '/static/js/app.js',
     '/static/js/api.js',
     '/static/js/i18n.js',
+    '/static/js/components/RouteFinder.js',
     '/static/js/components/BusCard.js',
     '/static/js/components/FilterBar.js',
     '/static/js/components/Modal.js',
@@ -44,28 +45,19 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // If it's an API GET call, try network first, then cache
-    if (event.request.url.includes('/api/')) {
-        event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    if (response && response.status === 200) {
-                        const resClone = response.clone();
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, resClone);
-                        });
-                    }
-                    return response;
-                })
-                .catch(() => caches.match(event.request))
-        );
-        return;
-    }
-
-    // For static assets: cache first, fallback to network
+    // Network-first strategy with cache fallback for offline PWA support
     event.respondWith(
-        caches.match(event.request).then(response => {
-            return response || fetch(event.request);
-        })
+        fetch(event.request)
+            .then(response => {
+                if (response && response.status === 200) {
+                    const resClone = response.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(event.request, resClone);
+                    });
+                }
+                return response;
+            })
+            .catch(() => caches.match(event.request))
     );
 });
+

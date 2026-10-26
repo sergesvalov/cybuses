@@ -19,9 +19,21 @@ import os
 import asyncio
 import logging
 import aiohttp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
+
+
+def _get_cyprus_now() -> datetime:
+    """Returns current datetime in Cyprus timezone with fallback if IANA tzdata is missing on Windows."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Asia/Nicosia"))
+    except Exception:
+        now_utc = datetime.now(timezone.utc)
+        month = now_utc.month
+        offset_hours = 3 if 4 <= month <= 10 else 2
+        return now_utc + timedelta(hours=offset_hours)
+
 
 # --- Reuse project internals ---
 from config import ROUTES, MCP_HOST, MCP_PORT
@@ -206,7 +218,7 @@ async def get_nearest_bus(
     if not data:
         return "❌ Не удалось загрузить расписание."
 
-    now = datetime.now(ZoneInfo("Asia/Nicosia"))
+    now = _get_cyprus_now()
     now_str = now.strftime("%H:%M")
     results = []
 
@@ -280,6 +292,231 @@ async def get_nearest_bus(
     snippet = result_text[:100].replace('\n', ' ')
     log.info(f"get_nearest_bus returning {len(result_text)} chars. Snippet: {snippet}...")
     return result_text
+
+
+# ── Extended MCP Tools (Route Finder, Airport Transfers, Search) ──────────────
+
+CITY_SYNONYMS = {
+    "paphos": ["paphos", "pafos", "пафос"],
+    "limassol": ["limassol", "lemesos", "лимассол"],
+    "nicosia": ["nicosia", "lefkosia", "никосия"],
+    "larnaca": ["larnaca", "ларнака"],
+    "paralimni": ["paralimni", "ayia napa", "agia napa", "паралимни", "айя-напа"],
+    "paphos_airport": ["paphos airport", "pfo", "аэропорт пафос", "аэропорт пафоса"],
+    "larnaca_airport": ["larnaca airport", "lca", "аэропорт ларнака", "аэропорт ларнаки"]
+}
+
+
+def _normalize_city_token(token: str) -> str:
+    t_lower = token.lower().strip()
+    for norm, syns in CITY_SYNONYMS.items():
+        if any(s in t_lower for s in syns):
+            return norm
+    return t_lower
+
+
+@mcp.tool()
+async def find_bus(
+    origin: str,
+    destination: str,
+    at_time: Optional[str] = None
+) -> str:
+    """
+    Находит прямые автобусы между двумя пунктами на Кипре (города или аэропорты).
+    Поддерживает названия на русском и английском (например, 'Пафос', 'Лимассол', 'Никосия', 'Ларнака', 'Аэропорт Пафос').
+
+    Args:
+        origin: Пункт отправления (например, 'Paphos', 'Лимассол', 'Larnaca Airport')
+        destination: Пункт назначения (например, 'Nicosia', 'Пафос', 'Аэропорт Ларнака')
+        at_time: Время отправления 'HH:MM' (если не указано, используется текущее время на Кипре)
+    """
+    log.info(f"Tool called: find_bus(origin='{origin}', destination='{destination}', at_time='{at_time}')")
+    norm_origin = _normalize_city_token(origin)
+    norm_dest = _normalize_city_token(destination)
+
+    now = _get_cyprus_now()
+    target_time_str = at_time.strip() if at_time else now.strftime("%H:%M")
+
+    matched_results = []
+
+    for route_key, info in ALL_ROUTES.items():
+        route_data = await _fetch_schedule(route_key)
+        for direction in route_data:
+            desc = direction.get("desc", "").lower()
+            name = direction.get("name", "").lower()
+            combined = f"{name} {desc}"
+
+            # Check directional match: "Source ➝ Destination"
+            is_match = False
+            if "➝" in desc or "→" in desc:
+                parts = [p.strip() for p in desc.replace("→", "➝").split("➝")]
+                src_part = parts[0]
+                dst_part = parts[-1]
+
+                origin_syns = CITY_SYNONYMS.get(norm_origin, [norm_origin])
+                dest_syns = CITY_SYNONYMS.get(norm_dest, [norm_dest])
+
+                match_src = any(s in src_part for s in origin_syns)
+                match_dst = any(d in dst_part for d in dest_syns)
+                if match_src and match_dst:
+                    is_match = True
+            else:
+                # Airport shuttles or local routes
+                origin_syns = CITY_SYNONYMS.get(norm_origin, [norm_origin])
+                dest_syns = CITY_SYNONYMS.get(norm_dest, [norm_dest])
+                if any(s in combined for s in origin_syns) and any(d in combined for d in dest_syns):
+                    is_match = True
+
+            if not is_match:
+                continue
+
+            times = direction.get("times", [])
+            upcoming_times = []
+            for t in times:
+                t_str = t.get("t", "")
+                if t_str >= target_time_str and t_str != "LINK":
+                    note = f" ({t['note_txt']})" if t.get("note_txt") else (t.get("n") or "")
+                    upcoming_times.append(f"{t_str}{note}")
+
+            line_entry = [f"🚌 {direction.get('desc', name)} ({info['name']})"]
+            if direction.get("price"):
+                line_entry.append(f"   💶 Цена: {direction['price']}")
+            if direction.get("duration"):
+                line_entry.append(f"   ⏱ В пути: {direction['duration']}")
+
+            if upcoming_times:
+                sample = upcoming_times[:8]
+                line_entry.append(f"   ⏰ Рейсы начиная с {target_time_str}: {', '.join(sample)}")
+                if len(upcoming_times) > 8:
+                    line_entry.append(f"      (всего {len(upcoming_times)} рейсов)")
+            else:
+                all_t = [t.get("t") for t in times if t.get("t") != "LINK"]
+                if all_t:
+                    line_entry.append(f"   ℹ️ После {target_time_str} рейсов нет. Все рейсы дня: {', '.join(all_t[:6])}...")
+                else:
+                    line_entry.append(f"   🔗 Ссылка на бронирование/расписание: {info['url']}")
+
+            matched_results.append("\n".join(line_entry))
+
+    if not matched_results:
+        return (
+            f"❌ Прямых рейсов между '{origin}' и '{destination}' не найдено.\n"
+            f"Совет: попробуйте поиск с пересадкой (например, через Лимассол) или проверьте шаттлы в аэропорт через get_airport_transfers."
+        )
+
+    header = f"🎯 Найденные автобусы: {origin.title()} ➔ {destination.title()}\nВремя отправления: начиная с {target_time_str}\n\n"
+    return header + "\n\n".join(matched_results)
+
+
+@mcp.tool()
+async def get_airport_transfers(
+    airport: str,
+    city: Optional[str] = None
+) -> str:
+    """
+    Возвращает информацию о шаттлах и автобусах в аэропорты Кипра (Ларнака LCA или Пафос PFO).
+    Показывает расписания Limassol Airport Express, Kapnos Airport Shuttle и OSYPA 612/613.
+
+    Args:
+        airport: Аэропорт — 'Larnaca' / 'LCA' или 'Paphos' / 'PFO'
+        city: Опциональный город отправления/прибытия (например, 'Limassol', 'Nicosia', 'Paphos')
+    """
+    log.info(f"Tool called: get_airport_transfers(airport='{airport}', city='{city}')")
+    airport_lower = airport.lower().strip()
+    is_lca = "lar" in airport_lower or "lca" in airport_lower
+    is_pfo = "paf" in airport_lower or "paph" in airport_lower or "pfo" in airport_lower
+
+    if not is_lca and not is_pfo:
+        return "❌ Укажите аэропорт: 'Larnaca' (LCA) или 'Paphos' (PFO)."
+
+    results = []
+    target_airport_name = "Larnaca Airport (LCA)" if is_lca else "Paphos Airport (PFO)"
+
+    # Filter airport routes
+    airport_routes = ["osypa_airport", "osypa_airport_613", "kapnos", "limassol_airport"]
+    for r_key in airport_routes:
+        if r_key not in ALL_ROUTES:
+            continue
+        info = ALL_ROUTES[r_key]
+
+        # Check city filter
+        if city:
+            c_norm = _normalize_city_token(city)
+            c_syns = CITY_SYNONYMS.get(c_norm, [c_norm])
+            name_desc = f"{info['name']} {r_key}".lower()
+            if not any(s in name_desc for s in c_syns):
+                if r_key in ("osypa_airport", "osypa_airport_613") and "paphos" not in c_syns:
+                    continue
+                if r_key == "limassol_airport" and "limassol" not in c_syns and "paphos" not in c_syns and "larnaca" not in c_syns:
+                    continue
+
+        data = await _fetch_schedule(r_key)
+        for direction in data:
+            desc = direction.get("desc", "")
+            times = direction.get("times", [])
+            t_samples = [t.get("t") for t in times if t.get("t") != "LINK"]
+
+            entry = [f"✈️ {direction.get('desc', info['name'])} ({info['name']})"]
+            if direction.get("duration"):
+                entry.append(f"   ⏱ В пути: {direction['duration']}")
+            if direction.get("price"):
+                entry.append(f"   💶 Цена: {direction['price']}")
+
+            if t_samples:
+                entry.append(f"   ⏰ Расписание: {', '.join(t_samples[:10])}")
+                if len(t_samples) > 10:
+                    entry.append(f"      (всего {len(t_samples)} рейсов)")
+            else:
+                entry.append(f"   🔗 Билеты и расписание онлайн: {info['url']}")
+
+            results.append("\n".join(entry))
+
+    if not results:
+        return f"❌ Рейсов для аэропорта {target_airport_name} не найдено."
+
+    header = f"✈️ Трансферы в/из {target_airport_name}:\n\n"
+    return header + "\n\n".join(results)
+
+
+@mcp.tool()
+async def search_schedule(query: str) -> str:
+    """
+    Полнотекстовый поиск по расписанию автобусов Кипра (по названию остановки, достопримечательности или направления).
+    Например: 'Coral Bay', 'Waterpark', 'Karavella', 'Petra Tou Romiou', 'Market'.
+
+    Args:
+        query: Поисковый запрос (например, 'Coral Bay', 'Аэропорт', 'Market')
+    """
+    log.info(f"Tool called: search_schedule(query='{query}')")
+    q_lower = query.lower().strip()
+    if not q_lower:
+        return "❌ Введите поисковый запрос."
+
+    matches = []
+    for r_key, info in ALL_ROUTES.items():
+        data = await _fetch_schedule(r_key)
+        for direction in data:
+            desc = direction.get("desc", "")
+            name = direction.get("name", "")
+            combined = f"{name} {desc}".lower()
+
+            if q_lower in combined or q_lower in r_key.lower():
+                times = [t.get("t") for t in direction.get("times", []) if t.get("t") != "LINK"]
+                entry = [f"🚌 {desc} ({name})"]
+                if direction.get("duration"):
+                    entry.append(f"   ⏱ В пути: {direction['duration']}")
+                if direction.get("price"):
+                    entry.append(f"   💶 Цена: {direction['price']}")
+                if times:
+                    entry.append(f"   ⏰ Рейсы: {', '.join(times[:8])}")
+                matches.append("\n".join(entry))
+
+    if not matches:
+        return f"❌ По запросу '{query}' рейсов не найдено."
+
+    header = f"🔍 Результаты поиска по запросу '{query}':\n\n"
+    return header + "\n\n".join(matches[:10])
+
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
