@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cybuses-v10';
+const CACHE_NAME = 'cybuses-v11';
 const ASSETS = [
     '/',
     '/static/css/style.css',

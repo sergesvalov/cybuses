@@ -1,9 +1,10 @@
-import { Api } from './api.js?v=10';
-import { FilterBar } from './components/FilterBar.js?v=10';
-import { RouteFinder } from './components/RouteFinder.js?v=10';
-import { BusCard } from './components/BusCard.js?v=10';
-import { Modal } from './components/Modal.js?v=10';
-import { t, getLang, setLang } from './i18n.js?v=10';
+import { Api } from './api.js?v=11';
+import { FilterBar } from './components/FilterBar.js?v=11';
+import { RouteFinder } from './components/RouteFinder.js?v=11';
+import { BusCard } from './components/BusCard.js?v=11';
+import { JourneyPlanner } from './components/JourneyPlanner.js?v=11';
+import { Modal } from './components/Modal.js?v=11';
+import { t, getLang, setLang } from './i18n.js?v=11';
 
 class BusApp {
     constructor() {
@@ -235,20 +236,34 @@ class BusApp {
         const activeDayType = this.getCurrentDayType();
         const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         const weekends = ['saturday', 'sunday'];
+        const curMins = this.getCyprusMinutes();
+        const rfState = this.routeFinder.getState();
 
+        const isOriginDestSelected = rfState.from !== 'any' && rfState.to !== 'any' && rfState.from !== rfState.to;
+
+        // 1. If Origin and Destination are selected, compute Journey Itineraries (including transfers)
+        let itineraries = [];
+        if (isOriginDestSelected) {
+            itineraries = JourneyPlanner.planJourney(this.data, rfState.from, rfState.to, {
+                curMins,
+                dayType: activeDayType
+            });
+        }
+
+        // 2. Direct route cards matching
         const fData = this.data.reduce((acc, route) => {
-            // 1. Direct RouteFinder match (Origin -> Destination)
+            // Direct RouteFinder match (Origin -> Destination)
             if (!this.routeFinder.matchRoute(route)) {
                 return acc;
             }
 
-            // 2. Text Search Query Check
+            // Text Search Query Check
             if (this.searchQuery) {
                 const searchStr = `${route.name} ${route.desc}`.toLowerCase();
                 if (!searchStr.includes(this.searchQuery)) return acc;
             }
 
-            // 3. Current day schedule match (auto)
+            // Current day schedule match (auto)
             let matchDay = false;
             if (route.type === 'all') {
                 matchDay = true;
@@ -272,8 +287,32 @@ class BusApp {
             return favB - favA;
         });
 
+        // If itineraries with transfers exist, render them prominently!
+        if (itineraries.length > 0) {
+            const itSection = document.createElement('div');
+            itSection.className = 'itinerary-section';
+            itSection.innerHTML = `<h3 class="itinerary-section-title">🧭 ${t('connectionsAvailable')}</h3>`;
+
+            itineraries.forEach(it => {
+                itSection.appendChild(JourneyPlanner.renderItineraryCard(it));
+            });
+
+            this.appEl.appendChild(itSection);
+
+            // Also render direct timetable cards if any exist
+            if (fData.length > 0) {
+                const directTitle = document.createElement('h3');
+                directTitle.className = 'itinerary-section-title';
+                directTitle.style.marginTop = '24px';
+                directTitle.textContent = `📋 ${t('directRoutes')}`;
+                this.appEl.appendChild(directTitle);
+                this.renderCardList(fData);
+            }
+            return;
+        }
+
+        // If no itineraries and no direct routes
         if (!fData.length) {
-            const rfState = this.routeFinder.getState();
             if (rfState.from !== 'any' || rfState.to !== 'any') {
                 this.appEl.innerHTML = `
                     <div class="empty-state">
@@ -296,24 +335,7 @@ class BusApp {
             return;
         }
 
-        const isToday = true;
-        const curMins = this.getCyprusMinutes();
-
-        fData.forEach(r => {
-            const favKey = `${r.prov}_${r.name}_${r.desc}`;
-            r.isFav = this.favorites.includes(favKey);
-
-            const cardComponent = new BusCard(r, (time, stars, note) => {
-                this.modal.show(time, stars, note);
-            }, {
-                isToday,
-                curMins
-            });
-
-            this.appEl.appendChild(cardComponent.render());
-        });
-
-        this.bindCardEvents();
+        this.renderCardList(fData);
     }
 
     renderCatalogTab() {
@@ -480,6 +502,30 @@ class BusApp {
         });
 
         this.bindCardEvents();
+    }
+
+    renderCardList(routesList) {
+        const frag = document.createDocumentFragment();
+        const isToday = true;
+        const curMins = this.getCyprusMinutes();
+
+        routesList.forEach(r => {
+            const favKey = `${r.prov}_${r.name}_${r.desc}`;
+            r.isFav = this.favorites.includes(favKey);
+
+            const cardComponent = new BusCard(r, (time, stars, note) => {
+                this.modal.show(time, stars, note);
+            }, {
+                isToday,
+                curMins
+            });
+
+            frag.appendChild(cardComponent.render());
+        });
+
+        this.appEl.appendChild(frag);
+        this.bindCardEvents();
+        this.highlightNext();
     }
 
     bindCardEvents() {
