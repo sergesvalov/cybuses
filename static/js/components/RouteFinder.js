@@ -62,6 +62,52 @@ export class RouteFinder {
         this.bindEvents();
     }
 
+    updateResetButton() {
+        const isFiltering = this.state.from !== 'any' || this.state.to !== 'any';
+        let resetBtn = this.container.querySelector('#rf-reset');
+        if (isFiltering && !resetBtn) {
+            const titleRow = this.container.querySelector('.rf-title-row');
+            if (titleRow) {
+                const btn = document.createElement('button');
+                btn.className = 'rf-reset-btn';
+                btn.id = 'rf-reset';
+                btn.title = t('reset');
+                btn.textContent = `✕ ${t('reset')}`;
+                btn.addEventListener('click', () => this.reset());
+                titleRow.appendChild(btn);
+            }
+        } else if (!isFiltering && resetBtn) {
+            resetBtn.remove();
+        }
+    }
+
+    swap() {
+        const temp = this.state.from;
+        this.state.from = this.state.to;
+        this.state.to = temp;
+
+        const fromSelect = this.container.querySelector('#rf-from');
+        const toSelect = this.container.querySelector('#rf-to');
+        if (fromSelect) fromSelect.value = this.state.from;
+        if (toSelect) toSelect.value = this.state.to;
+
+        this.updateResetButton();
+        this.onRouteChange(this.state);
+    }
+
+    reset() {
+        this.state.from = 'any';
+        this.state.to = 'any';
+
+        const fromSelect = this.container.querySelector('#rf-from');
+        const toSelect = this.container.querySelector('#rf-to');
+        if (fromSelect) fromSelect.value = 'any';
+        if (toSelect) toSelect.value = 'any';
+
+        this.updateResetButton();
+        this.onRouteChange(this.state);
+    }
+
     bindEvents() {
         const fromSelect = this.container.querySelector('#rf-from');
         const toSelect = this.container.querySelector('#rf-to');
@@ -71,7 +117,7 @@ export class RouteFinder {
         if (fromSelect) {
             fromSelect.addEventListener('change', (e) => {
                 this.state.from = e.target.value;
-                this.render();
+                this.updateResetButton();
                 this.onRouteChange(this.state);
             });
         }
@@ -79,28 +125,17 @@ export class RouteFinder {
         if (toSelect) {
             toSelect.addEventListener('change', (e) => {
                 this.state.to = e.target.value;
-                this.render();
+                this.updateResetButton();
                 this.onRouteChange(this.state);
             });
         }
 
         if (swapBtn) {
-            swapBtn.addEventListener('click', () => {
-                const temp = this.state.from;
-                this.state.from = this.state.to;
-                this.state.to = temp;
-                this.render();
-                this.onRouteChange(this.state);
-            });
+            swapBtn.addEventListener('click', () => this.swap());
         }
 
         if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                this.state.from = 'any';
-                this.state.to = 'any';
-                this.render();
-                this.onRouteChange(this.state);
-            });
+            resetBtn.addEventListener('click', () => this.reset());
         }
     }
 
