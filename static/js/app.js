@@ -1,9 +1,9 @@
-import { Api } from './api.js';
-import { FilterBar } from './components/FilterBar.js';
-import { RouteFinder } from './components/RouteFinder.js';
-import { BusCard } from './components/BusCard.js';
-import { Modal } from './components/Modal.js';
-import { t, getLang, setLang } from './i18n.js';
+import { Api } from './api.js?v=10';
+import { FilterBar } from './components/FilterBar.js?v=10';
+import { RouteFinder } from './components/RouteFinder.js?v=10';
+import { BusCard } from './components/BusCard.js?v=10';
+import { Modal } from './components/Modal.js?v=10';
+import { t, getLang, setLang } from './i18n.js?v=10';
 
 class BusApp {
     constructor() {
@@ -17,13 +17,22 @@ class BusApp {
         this.searchQuery = '';
         this.favorites = JSON.parse(localStorage.getItem('cybuses_favs') || '[]');
 
+        // Tab Navigation Elements
+        this.activeTab = localStorage.getItem('cybuses_active_tab') || 'search';
+        this.tabBtnSearch = document.getElementById('tab-btn-search');
+        this.tabBtnCatalog = document.getElementById('tab-btn-catalog');
+        this.viewSearch = document.getElementById('view-search');
+        this.viewCatalog = document.getElementById('view-catalog');
+        this.tabLabelSearch = document.getElementById('tab-label-search');
+        this.tabLabelCatalog = document.getElementById('tab-label-catalog');
+
         // Initialize Components
         this.modal = new Modal('modal');
         this.routeFinder = new RouteFinder('route-finder-container', () => {
-            this.render();
+            if (this.activeTab === 'search') this.render();
         });
         this.filterBar = new FilterBar('filter-container', () => {
-            this.render();
+            if (this.activeTab === 'catalog') this.render();
         });
 
         this.bindEvents();
@@ -47,13 +56,18 @@ class BusApp {
 
     updateLangButton() {
         if (this.langBtn) {
-            // Show current language badge
             this.langBtn.textContent = getLang().toUpperCase();
             this.langBtn.setAttribute('title', getLang() === 'ru' ? 'Switch to English' : 'Переключить на русский');
         }
     }
 
     updateTexts() {
+        if (this.tabLabelSearch) {
+            this.tabLabelSearch.textContent = t('tabSearch');
+        }
+        if (this.tabLabelCatalog) {
+            this.tabLabelCatalog.textContent = t('tabCatalog');
+        }
         if (this.searchInput) {
             this.searchInput.placeholder = t('searchPlaceholder');
         }
@@ -92,6 +106,30 @@ class BusApp {
         this.updateTimeEl.textContent = `🕒 ${t('updatedAt', { time: timeStr })}`;
     }
 
+    switchTab(tab) {
+        this.activeTab = tab;
+        localStorage.setItem('cybuses_active_tab', tab);
+
+        const isSearch = tab === 'search';
+        if (this.tabBtnSearch) {
+            this.tabBtnSearch.classList.toggle('active', isSearch);
+            this.tabBtnSearch.setAttribute('aria-selected', isSearch ? 'true' : 'false');
+        }
+        if (this.tabBtnCatalog) {
+            this.tabBtnCatalog.classList.toggle('active', !isSearch);
+            this.tabBtnCatalog.setAttribute('aria-selected', !isSearch ? 'true' : 'false');
+        }
+
+        if (this.viewSearch) {
+            this.viewSearch.style.display = isSearch ? 'block' : 'none';
+        }
+        if (this.viewCatalog) {
+            this.viewCatalog.style.display = !isSearch ? 'block' : 'none';
+        }
+
+        this.render();
+    }
+
     bindEvents() {
         this.updateLangButton();
         this.updateTexts();
@@ -99,6 +137,17 @@ class BusApp {
         // Render initial UI components
         this.routeFinder.render();
         this.filterBar.render();
+
+        // Initialize active tab visibility
+        this.switchTab(this.activeTab);
+
+        // Tab click listeners
+        if (this.tabBtnSearch) {
+            this.tabBtnSearch.addEventListener('click', () => this.switchTab('search'));
+        }
+        if (this.tabBtnCatalog) {
+            this.tabBtnCatalog.addEventListener('click', () => this.switchTab('catalog'));
+        }
 
         // Language toggle
         if (this.langBtn) {
@@ -139,15 +188,17 @@ class BusApp {
             };
         };
 
-        // Search input logic with debounce
+        // Search input logic with debounce (Tab 1)
         const debouncedSearch = debounce((query) => {
             this.searchQuery = query;
-            this.render();
+            if (this.activeTab === 'search') this.render();
         }, 150);
 
-        this.searchInput.addEventListener('input', (e) => {
-            debouncedSearch(e.target.value.toLowerCase().trim());
-        });
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', (e) => {
+                debouncedSearch(e.target.value.toLowerCase().trim());
+            });
+        }
 
         // Polling for live countdown and highlighting (every 30s)
         setInterval(() => this.highlightNext(), 30000);
@@ -166,17 +217,112 @@ class BusApp {
             this.render();
         } catch (e) {
             this.appEl.innerHTML = `<div class="loader">${t('serverError')}</div>`;
-            console.error(e);
+            console.error("Failed to load or render data:", e);
         }
     }
 
     render() {
         this.appEl.innerHTML = '';
 
+        if (this.activeTab === 'search') {
+            this.renderSearchTab();
+        } else {
+            this.renderCatalogTab();
+        }
+    }
+
+    renderSearchTab() {
+        const activeDayType = this.getCurrentDayType();
+        const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        const weekends = ['saturday', 'sunday'];
+
+        const fData = this.data.reduce((acc, route) => {
+            // 1. Direct RouteFinder match (Origin -> Destination)
+            if (!this.routeFinder.matchRoute(route)) {
+                return acc;
+            }
+
+            // 2. Text Search Query Check
+            if (this.searchQuery) {
+                const searchStr = `${route.name} ${route.desc}`.toLowerCase();
+                if (!searchStr.includes(this.searchQuery)) return acc;
+            }
+
+            // 3. Current day schedule match (auto)
+            let matchDay = false;
+            if (route.type === 'all') {
+                matchDay = true;
+            } else if (activeDayType === 'weekday') {
+                matchDay = (route.type === 'weekday' || weekdays.includes(route.type));
+            } else if (activeDayType === 'weekend') {
+                matchDay = (route.type === 'weekend' || weekends.includes(route.type));
+            }
+
+            if (matchDay) {
+                acc.push(route);
+            }
+            return acc;
+        }, []);
+
+        // Sort Favorites first
+        fData.sort((a, b) => {
+            const getFavKey = (r) => `${r.prov}_${r.name}_${r.desc}`;
+            const favA = this.favorites.includes(getFavKey(a)) ? 1 : 0;
+            const favB = this.favorites.includes(getFavKey(b)) ? 1 : 0;
+            return favB - favA;
+        });
+
+        if (!fData.length) {
+            const rfState = this.routeFinder.getState();
+            if (rfState.from !== 'any' || rfState.to !== 'any') {
+                this.appEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🎯</div>
+                        <div class="empty-text">${t('noDirectRoutes')}</div>
+                    </div>`;
+            } else if (this.searchQuery) {
+                this.appEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔍</div>
+                        <div class="empty-text">${t('noRoutes')}</div>
+                    </div>`;
+            } else {
+                this.appEl.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🚌</div>
+                        <div class="empty-text">${t('noRoutes')}</div>
+                    </div>`;
+            }
+            return;
+        }
+
+        const isToday = true;
+        const curMins = this.getCyprusMinutes();
+
+        fData.forEach(r => {
+            const favKey = `${r.prov}_${r.name}_${r.desc}`;
+            r.isFav = this.favorites.includes(favKey);
+
+            const cardComponent = new BusCard(r, (time, stars, note) => {
+                this.modal.show(time, stars, note);
+            }, {
+                isToday,
+                curMins
+            });
+
+            this.appEl.appendChild(cardComponent.render());
+        });
+
+        this.bindCardEvents();
+    }
+
+    renderCatalogTab() {
         const state = this.filterBar.getState();
         const activeDayType = state.d === 'auto' || state.d === 'nearest' ? this.getCurrentDayType() : state.d;
 
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        const weekends = ['saturday', 'sunday'];
         const todayDayType = this.getCurrentDayType();
         const curMins = this.getCyprusMinutes();
 
@@ -184,39 +330,63 @@ class BusApp {
             const favKey = `${route.prov}_${route.name}_${route.desc}`;
             const isFav = this.favorites.includes(favKey);
 
-            // RouteFinder (Origin -> Destination) Check
-            if (!this.routeFinder.matchRoute(route)) {
-                return acc;
-            }
-
-            // Favorites filter check
+            // 1. Agency filter (state.p)
             if (state.p === 'favorites') {
                 if (!isFav) return acc;
             } else if (state.p !== 'all' && route.prov !== state.p) {
                 return acc;
             }
 
-            // Text Search Check
-            const q = this.searchQuery;
-            if (q) {
-                const searchStr = `${route.name} ${route.desc}`.toLowerCase();
-                if (!searchStr.includes(q)) return acc;
-            }
+            // 2. Routes / Categories / Cities filter
+            const nameLower = (route.name || '').toLowerCase();
+            const descLower = (route.desc || '').toLowerCase();
+            const combined = `${nameLower} ${descLower}`;
 
-            let matchCity = true;
-            if (state.c && state.c !== 'all') {
+            if (state.p === 'osypa' && state.r !== 'all') {
+                const matchRouteNum = nameLower.match(/^\s*(\d+[a-z]?)/i);
+                const num = matchRouteNum ? matchRouteNum[1].toUpperCase() : '';
+
+                if (state.r === 'airport') {
+                    if (num !== '612' && num !== '613') return acc;
+                } else if (state.r === 'villages') {
+                    const villageNums = ['630', '632', '633', '634', '635', '636', '637', '638', '639'];
+                    if (!villageNums.includes(num)) return acc;
+                } else if (state.r === 'polis') {
+                    const polisNums = ['621', '622', '623', '624', '625', '640', '641', '643A', '643B', '645', '646', '647', '648'];
+                    if (!polisNums.includes(num)) return acc;
+                } else if (state.r === 'city') {
+                    const cityNums = ['601', '602', '603', '603B', '604', '606', '607', '608', '609', '610', '611', '614', '615', '616', '616B', '618', '631'];
+                    if (!cityNums.includes(num)) return acc;
+                }
+            } else if (state.p === 'intercity' && state.r !== 'all') {
+                if (state.r === 'paphos_limassol') {
+                    if (!combined.includes('paphos') || !combined.includes('limassol')) return acc;
+                } else if (state.r === 'paphos_nicosia') {
+                    if (!combined.includes('paphos') || !combined.includes('nicosia')) return acc;
+                } else if (state.r === 'limassol_nicosia') {
+                    if (!combined.includes('limassol') || !combined.includes('nicosia')) return acc;
+                } else if (state.r === 'limassol_larnaca') {
+                    if (!combined.includes('limassol') || !combined.includes('larnaca')) return acc;
+                } else if (state.r === 'larnaca_nicosia') {
+                    if (!combined.includes('larnaca') || !combined.includes('nicosia')) return acc;
+                } else if (state.r === 'paralimni') {
+                    if (!combined.includes('paralimni') && !combined.includes('ayia napa') && !combined.includes('famagusta')) return acc;
+                }
+            } else if (state.p === 'shuttle' && state.r !== 'all') {
+                if (state.r === 'kapnos' && !combined.includes('kapnos')) return acc;
+                if (state.r === 'limassol_express' && !combined.includes('limassol airport express')) return acc;
+            } else if ((state.p === 'all' || state.p === 'favorites') && state.c !== 'all') {
                 const c = state.c.toLowerCase();
-                const searchStr = `${route.name} ${route.desc}`.toLowerCase();
-                matchCity = searchStr.includes(c);
-                if (c === 'paphos' && (route.prov === 'osypa' || route.prov === 'shuttle')) matchCity = true;
-                if (c === 'larnaca' && route.name.toLowerCase().includes('kapnos')) matchCity = true;
-                if (c === 'limassol' && route.name.toLowerCase().includes('limassol airport express')) matchCity = true;
+                let matchCity = combined.includes(c);
+                if (c === 'paphos' && (route.prov === 'osypa' || combined.includes('pfo') || combined.includes('пафос'))) matchCity = true;
+                if (c === 'larnaca' && (combined.includes('kapnos') || combined.includes('lca') || combined.includes('ларнака'))) matchCity = true;
+                if (c === 'limassol' && (combined.includes('limassol airport express') || combined.includes('лимассол'))) matchCity = true;
+                if (c === 'polis' && (combined.includes('polis') || combined.includes('latchi') || combined.includes('полис') || combined.includes('лачи'))) matchCity = true;
+                if (!matchCity) return acc;
             }
 
+            // 3. Day match
             let matchDay = false;
-            const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-            const weekends = ['saturday', 'sunday'];
-
             if (route.type === 'all') {
                 matchDay = true;
             } else {
@@ -235,8 +405,9 @@ class BusApp {
                 }
             }
 
-            if (!matchDay || !matchCity) return acc;
+            if (!matchDay) return acc;
 
+            // Nearest filter
             if (state.d === 'nearest') {
                 const filteredTimes = route.times.map(tObj => {
                     const txt = (tObj.t || "").replace(/[^\d:]/g, '');
@@ -263,10 +434,11 @@ class BusApp {
             } else {
                 acc.push(route);
             }
+
             return acc;
         }, []);
 
-        // Sort Data: Favorites first (unless already filtering by favorites)
+        // Sort Favorites first
         fData.sort((a, b) => {
             const getFavKey = (r) => `${r.prov}_${r.name}_${r.desc}`;
             const favA = this.favorites.includes(getFavKey(a)) ? 1 : 0;
@@ -275,14 +447,7 @@ class BusApp {
         });
 
         if (!fData.length) {
-            const rfState = this.routeFinder.getState();
-            if (rfState.from !== 'any' || rfState.to !== 'any') {
-                this.appEl.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">🎯</div>
-                        <div class="empty-text">${t('noDirectRoutes')}</div>
-                    </div>`;
-            } else if (state.p === 'favorites') {
+            if (state.p === 'favorites') {
                 this.appEl.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">⭐</div>
@@ -298,7 +463,6 @@ class BusApp {
             return;
         }
 
-        // Determine whether active day filter represents today
         const isToday = (activeDayType === todayDayType || state.d === 'auto' || state.d === 'nearest');
 
         fData.forEach(r => {
@@ -336,10 +500,13 @@ class BusApp {
     highlightNext() {
         if (document.hidden) return;
         const curMins = this.getCyprusMinutes();
-        const state = this.filterBar.getState();
-        const activeDayType = state.d === 'auto' || state.d === 'nearest' ? this.getCurrentDayType() : state.d;
         const todayDayType = this.getCurrentDayType();
-        const isToday = (activeDayType === todayDayType || state.d === 'auto' || state.d === 'nearest');
+        let isToday = true;
+        if (this.activeTab === 'catalog') {
+            const state = this.filterBar.getState();
+            const activeDayType = state.d === 'auto' || state.d === 'nearest' ? todayDayType : state.d;
+            isToday = (activeDayType === todayDayType || state.d === 'auto' || state.d === 'nearest');
+        }
 
         if (!isToday) return;
 
@@ -409,16 +576,9 @@ class BusApp {
             }
         });
     }
-
-    async refresh() {
-        if (this.refreshBtn.classList.contains('spinning')) return;
-        this.refreshBtn.classList.add('spinning');
-        await Api.refreshData();
-        this.refreshBtn.classList.remove('spinning');
-        this.load();
-    }
 }
 
+// Start application on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     const app = new BusApp();
     app.load();
