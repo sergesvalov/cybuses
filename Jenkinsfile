@@ -81,13 +81,13 @@ pipeline {
 
                                 echo ">>> Starting new container..."
                                 ENV_OPT=""
-                                if [ -f ~/.cybuses.env ]; then
-                                    ENV_OPT="--env-file ~/.cybuses.env"
+                                if [ -f "\$HOME/.cybuses.env" ]; then
+                                    ENV_OPT="--env-file \$HOME/.cybuses.env"
                                 fi
 
                                 docker run -d \
                                     --name ${CONTAINER_NAME} \
-                                    ${ENV_OPT} \
+                                    \${ENV_OPT} \
                                     -p ${APP_PORT}:8000 \
                                     -p 8999:8999 \
                                     --restart unless-stopped \
