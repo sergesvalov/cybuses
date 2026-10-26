@@ -2,6 +2,21 @@ import re
 from .base import BaseParser
 
 
+def clean_stop_name(s: str) -> str:
+    s = re.sub(r'(?i)\b(bus station|station|bus stop)\b', '', s)
+    s = s.strip().rstrip(':').strip()
+    sl = s.lower()
+    if 'karavela' in sl or 'karavella' in sl:
+        return 'Karavella (Paphos)'
+    if 'tombs of the kings' in sl:
+        return 'Tombs of the Kings (Paphos)'
+    if 'harbour' in sl or 'kato paphos' in sl:
+        return 'Harbour (Paphos)'
+    if 'airport' in sl:
+        return 'Pafos Airport'
+    return s
+
+
 def resolve_osypa_direction(route_name: str, dir_text: str) -> str:
     """Converts OSYPA stop/direction text into standardized 'Origin ➝ Destination' format."""
     dl = dir_text.lower()
@@ -33,7 +48,25 @@ def resolve_osypa_direction(route_name: str, dir_text: str) -> str:
         if 'petra' in dl:
             return 'Petra tou Romiou ➝ Harbour (Paphos)'
         return 'Harbour (Paphos) ➝ Petra tou Romiou'
-    return dir_text
+
+    # Generalized extraction for villages, Polis, and suburbs
+    if '-' in route_name:
+        raw_parts = route_name.split(':', 1)[-1].split('-')
+        ep_a = clean_stop_name(raw_parts[0])
+        ep_b = clean_stop_name(raw_parts[-1])
+        if ep_a and ep_b and ep_a.lower() != ep_b.lower():
+            origin_raw = dir_text[5:] if dl.startswith('from ') else dir_text
+            origin = clean_stop_name(origin_raw)
+            if any(w in origin.lower() for w in ep_a.lower().split() if len(w) > 3):
+                return f"{ep_a} ➝ {ep_b}"
+            if any(w in origin.lower() for w in ep_b.lower().split() if len(w) > 3):
+                return f"{ep_b} ➝ {ep_a}"
+            return f"{origin} ➝ {ep_b}"
+
+    clean_dir = dir_text.strip().rstrip(':')
+    if clean_dir.lower().startswith('from '):
+        clean_dir = clean_dir[5:].strip()
+    return clean_dir
 
 
 class OsypaParser(BaseParser):
@@ -55,13 +88,20 @@ class OsypaParser(BaseParser):
                 continue
 
             lower = txt.lower()
-            has_time = re.search(r'\b\d{1,2}[:.]\d{2}\b', txt)
 
-            is_from_header = lower.startswith('from ') or any(
+            # Skip announcements, footers and copyright notices
+            if any(w in lower for w in ['announcement', 'copyright', '©', 'rights reserved', 'privacy policy']):
+                continue
+
+            # Remove date patterns like 01/10/2026 or 01.10.2026 so they are not mistaken for times
+            cleaned_txt = re.sub(r'\b\d{1,2}[./]\d{1,2}[./]\d{2,4}\b', '', txt)
+            has_time = re.search(r'\b\d{1,2}[:.]\d{2}\b', cleaned_txt)
+
+            is_from_header = lower.startswith('from ') or lower.startswith('from:') or any(
                 k in lower for k in [
                     'tombs of the kings', 'karavela', 'karavella', 'harbour',
                     'pafos airport', 'coral bay', 'municipal market',
-                    'waterpark', 'petra tou romiou'
+                    'waterpark', 'petra tou romiou', 'station'
                 ]
             )
 
@@ -83,9 +123,9 @@ class OsypaParser(BaseParser):
                         current_day_type = "all"
                     continue
 
-            raw_times = self.extract_times(txt)
-            if raw_times:
-                direction_label = current_direction or resolve_osypa_direction(info['name'], 'From ' + info['name'])
+            raw_times = self.extract_times(cleaned_txt)
+            if raw_times and current_direction:
+                direction_label = current_direction
                 key = (direction_label, current_day_type)
                 if key not in grouped_times:
                     grouped_times[key] = []

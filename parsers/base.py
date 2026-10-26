@@ -15,7 +15,7 @@ class BaseParser:
         # Using curl_cffi to impersonate Chrome 120 and bypass Cloudflare 403s
         self.session = requests.AsyncSession(impersonate="chrome120")
     
-    TIME_REGEX = re.compile(r'\b((?:[01]?\d|2[0-3]):[0-5]\d)([\*]*)')
+    TIME_REGEX = re.compile(r'\b((?:[01]?\d|2[0-3])[:.][0-5]\d)([\*]*)')
 
     async def close(self):
         """Close the underlying HTTP session."""

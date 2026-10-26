@@ -31,6 +31,7 @@ export class RouteFinder {
                             <option value="nicosia" ${isSelected('nicosia', this.state.from)}>${t('nicosia')}</option>
                             <option value="larnaca" ${isSelected('larnaca', this.state.from)}>${t('larnaca')}</option>
                             <option value="paralimni" ${isSelected('paralimni', this.state.from)}>${t('paralimni')}</option>
+                            <option value="polis" ${isSelected('polis', this.state.from)}>${t('polis')}</option>
                             <option value="paphos_airport" ${isSelected('paphos_airport', this.state.from)}>${t('paphosAirport')}</option>
                             <option value="larnaca_airport" ${isSelected('larnaca_airport', this.state.from)}>${t('larnacaAirport')}</option>
                         </select>
@@ -51,6 +52,7 @@ export class RouteFinder {
                             <option value="nicosia" ${isSelected('nicosia', this.state.to)}>${t('nicosia')}</option>
                             <option value="larnaca" ${isSelected('larnaca', this.state.to)}>${t('larnaca')}</option>
                             <option value="paralimni" ${isSelected('paralimni', this.state.to)}>${t('paralimni')}</option>
+                            <option value="polis" ${isSelected('polis', this.state.to)}>${t('polis')}</option>
                             <option value="paphos_airport" ${isSelected('paphos_airport', this.state.to)}>${t('paphosAirport')}</option>
                             <option value="larnaca_airport" ${isSelected('larnaca_airport', this.state.to)}>${t('larnacaAirport')}</option>
                         </select>
@@ -169,7 +171,26 @@ export class RouteFinder {
             return 'larnaca_airport';
         }
 
-        // 3. Paphos City (including OSYPA city stations: Harbour, Karavella, Tombs of the Kings, Market, Coral Bay, etc.)
+        // 3. Polis & Latchi
+        if (
+            s.includes('polis') ||
+            s.includes('latchi') ||
+            s.includes('lakki') ||
+            s.includes('полис') ||
+            s.includes('лачи') ||
+            s.includes('aphrodite') ||
+            s.includes('афродиты') ||
+            s.includes('neo chorio') ||
+            s.includes('нео хорио') ||
+            s.includes('pachyammos') ||
+            s.includes('пахиаммос') ||
+            s.includes('pomos') ||
+            s.includes('помос')
+        ) {
+            return 'polis';
+        }
+
+        // 4. Paphos City (including OSYPA city stations: Harbour, Karavella, Tombs of the Kings, Market, Coral Bay, etc.)
         if (
             s.includes('paphos') ||
             s.includes('pafos') ||
