@@ -35,51 +35,72 @@ class ShuttleParser(BaseParser):
 
     def extract_limassol_express_logic(self, pdf_bytes, pdf_url, info):
         raw_results = []
-        
         DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        schedule = { d: [] for d in DAYS }
+        schedule_to_airport = {d: [] for d in DAYS}
+        schedule_from_airport = {d: [] for d in DAYS}
 
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
                 table = page.extract_table()
                 if not table:
                     continue
-                
-                # We expect the times to be in the last row of the table
+
                 times_row = table[-1]
                 if len(times_row) < 14:
                     continue
-                
-                # Days 0-4 are Monday-Friday
-                # Days 5-6 are Saturday-Sunday
-                
+
                 for day_idx in range(7):
                     day_type = DAYS[day_idx]
-                    
                     limassol_col = day_idx * 2
                     airport_col = limassol_col + 1
-                    
-                    if times_row[airport_col]:
+
+                    # 1. Limassol -> Paphos Airport
+                    if limassol_col < len(times_row) and times_row[limassol_col]:
+                        for t_str, stars in self.extract_times(times_row[limassol_col]):
+                            nt = self.normalize_time(t_str)
+                            if ":" in nt:
+                                h, m = map(int, nt.split(':'))
+                                if 0 <= h <= 23 and 0 <= m <= 59:
+                                    if not any(x['t'] == nt for x in schedule_to_airport[day_type]):
+                                        schedule_to_airport[day_type].append({
+                                            "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
+                                        })
+
+                    # 2. Paphos Airport -> Limassol
+                    if airport_col < len(times_row) and times_row[airport_col]:
                         for t_str, stars in self.extract_times(times_row[airport_col]):
                             nt = self.normalize_time(t_str)
                             if ":" in nt:
                                 h, m = map(int, nt.split(':'))
                                 if 0 <= h <= 23 and 0 <= m <= 59:
-                                    if not any(x['t'] == nt for x in schedule[day_type]):
-                                        schedule[day_type].append({
+                                    if not any(x['t'] == nt for x in schedule_from_airport[day_type]):
+                                        schedule_from_airport[day_type].append({
                                             "t": nt, "n": stars, "f": nt + stars, "note_txt": ""
                                         })
 
-        # Format output
+        # Format output for both directions
         for d_type in DAYS:
-            t_list = schedule[d_type]
-            if t_list:
-                t_list.sort(key=lambda x: x['t'])
+            t_to = schedule_to_airport[d_type]
+            if t_to:
+                t_to.sort(key=lambda x: x['t'])
                 raw_results.append({
                     "name": info['name'],
-                    "desc": "Paphos Airport ➝ Larnaca Airport",
+                    "desc": "Limassol ➝ Paphos Airport",
                     "type": d_type,
-                    "times": t_list,
+                    "times": t_to,
+                    "url": pdf_url,
+                    "prov": info['provider'],
+                    "notes": {}
+                })
+
+            t_from = schedule_from_airport[d_type]
+            if t_from:
+                t_from.sort(key=lambda x: x['t'])
+                raw_results.append({
+                    "name": info['name'],
+                    "desc": "Paphos Airport ➝ Limassol",
+                    "type": d_type,
+                    "times": t_from,
                     "url": pdf_url,
                     "prov": info['provider'],
                     "notes": {}

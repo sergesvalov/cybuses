@@ -108,64 +108,128 @@ export class RouteFinder {
         return this.state;
     }
 
+    static resolveLocation(text, prov = '') {
+        if (!text) return null;
+        const s = text.toLowerCase();
+
+        // 1. Paphos Airport (PFO) - check specific airport terms first
+        if (
+            s.includes('paphos airport') ||
+            s.includes('pafos airport') ||
+            s.includes('аэропорт пафос') ||
+            s.includes('аэропорта пафос') ||
+            s.includes('pfo') ||
+            ((prov === 'osypa' || s.includes('612') || s.includes('613')) && (s.includes('airport') || s.includes('аэропорт')))
+        ) {
+            return 'paphos_airport';
+        }
+
+        // 2. Larnaca Airport (LCA)
+        if (
+            s.includes('larnaca airport') ||
+            s.includes('аэропорт ларнака') ||
+            s.includes('аэропорта ларнака') ||
+            s.includes('lca')
+        ) {
+            return 'larnaca_airport';
+        }
+
+        // 3. Paphos City (including OSYPA city stations: Harbour, Karavella, Tombs of the Kings, Market, Coral Bay, etc.)
+        if (
+            s.includes('paphos') ||
+            s.includes('pafos') ||
+            s.includes('пафос') ||
+            s.includes('tombs of the kings') ||
+            s.includes('karavela') ||
+            s.includes('karavella') ||
+            s.includes('harbour') ||
+            s.includes('coral bay') ||
+            s.includes('market') ||
+            s.includes('waterpark') ||
+            s.includes('petra') ||
+            prov === 'osypa'
+        ) {
+            return 'paphos';
+        }
+
+        // 4. Limassol City
+        if (
+            s.includes('limassol') ||
+            s.includes('lemesos') ||
+            s.includes('лимассол') ||
+            s.includes('havouza')
+        ) {
+            return 'limassol';
+        }
+
+        // 5. Nicosia City
+        if (
+            s.includes('nicosia') ||
+            s.includes('lefkosia') ||
+            s.includes('никосия')
+        ) {
+            return 'nicosia';
+        }
+
+        // 6. Larnaca City
+        if (
+            s.includes('larnaca') ||
+            s.includes('ларнака')
+        ) {
+            return 'larnaca';
+        }
+
+        // 7. Paralimni / Ayia Napa
+        if (
+            s.includes('paralimni') ||
+            s.includes('ayia napa') ||
+            s.includes('паралимни') ||
+            s.includes('айя-напа')
+        ) {
+            return 'paralimni';
+        }
+
+        return null;
+    }
+
     matchRoute(route) {
         const { from, to } = this.state;
         if (from === 'any' && to === 'any') return true;
 
-        const desc = (route.desc || '').toLowerCase();
-        const name = (route.name || '').toLowerCase();
-        const combined = `${name} ${desc}`;
+        const desc = route.desc || '';
+        const name = route.name || '';
+        const prov = route.prov || '';
 
-        const cityKeywords = {
-            paphos: ['paphos', 'pafos', 'пафос'],
-            limassol: ['limassol', 'lemesos', 'лимассол'],
-            nicosia: ['nicosia', 'lefkosia', 'никосия'],
-            larnaca: ['larnaca', 'ларнака'],
-            paralimni: ['paralimni', 'ayia napa', 'паралимни', 'айя-напа'],
-            paphos_airport: ['paphos airport', 'аэропорт пафос', '612', '613', 'airport', 'аэропорт'],
-            larnaca_airport: ['larnaca airport', 'аэропорт ларнака', 'lca']
-        };
+        let routeFrom = null;
+        let routeTo = null;
 
-        // Directional route: "CityA ➝ CityB"
+        // Check if description has directional arrow "Origin ➝ Destination"
         if (desc.includes('➝') || desc.includes('→')) {
-            const parts = desc.split(/[➝→]/).map(s => s.trim().toLowerCase());
-            const srcPart = parts[0];
-            const dstPart = parts[parts.length - 1];
-
-            if (from !== 'any') {
-                const fromKw = cityKeywords[from] || [from];
-                const matchFrom = fromKw.some(k => srcPart.includes(k) || (from === 'paphos_airport' && (srcPart.includes('airport') || route.prov === 'osypa')));
-                if (!matchFrom) return false;
+            const parts = desc.split(/[➝→]/).map(s => s.trim());
+            routeFrom = RouteFinder.resolveLocation(parts[0], prov);
+            routeTo = RouteFinder.resolveLocation(parts[parts.length - 1], prov);
+        } else if (name.includes('↔')) {
+            const parts = name.split('↔').map(s => s.trim());
+            const loc1 = RouteFinder.resolveLocation(parts[0], prov);
+            const loc2 = RouteFinder.resolveLocation(parts[1], prov);
+            if (from !== 'any' && to !== 'any') {
+                return (from === loc1 && to === loc2) || (from === loc2 && to === loc1);
             }
-
-            if (to !== 'any') {
-                const toKw = cityKeywords[to] || [to];
-                const matchTo = toKw.some(k => dstPart.includes(k) || (to === 'paphos_airport' && (dstPart.includes('airport') || route.prov === 'osypa')));
-                if (!matchTo) return false;
-            }
-
+            if (from !== 'any') return from === loc1 || from === loc2;
+            if (to !== 'any') return to === loc1 || to === loc2;
             return true;
+        } else if (name.toLowerCase().includes('kapnos')) {
+            routeTo = 'larnaca_airport';
         }
 
-        // Generic airport / shuttle routes
-        if (from === 'paphos_airport' || to === 'paphos_airport') {
-            const isPaphosAirport = combined.includes('airport') && (combined.includes('paphos') || combined.includes('612') || combined.includes('613') || route.prov === 'osypa');
-            if (!isPaphosAirport) return false;
+        // Strict matching: route origin must match "from"
+        if (from !== 'any') {
+            if (routeFrom !== from) return false;
         }
 
-        if (from === 'larnaca_airport' || to === 'larnaca_airport') {
-            const isLarnacaAirport = combined.includes('larnaca') && (combined.includes('airport') || combined.includes('kapnos') || combined.includes('express'));
-            if (!isLarnacaAirport) return false;
-        }
-
-        if (from !== 'any' && from !== 'paphos_airport' && from !== 'larnaca_airport') {
-            const fromKw = cityKeywords[from] || [from];
-            if (!fromKw.some(k => combined.includes(k))) return false;
-        }
-
-        if (to !== 'any' && to !== 'paphos_airport' && to !== 'larnaca_airport') {
-            const toKw = cityKeywords[to] || [to];
-            if (!toKw.some(k => combined.includes(k))) return false;
+        // Strict matching: route destination must match "to"
+        if (to !== 'any') {
+            if (routeTo !== to) return false;
         }
 
         return true;

@@ -303,13 +303,13 @@ async def get_nearest_bus(
 # ── Extended MCP Tools (Route Finder, Airport Transfers, Search) ──────────────
 
 CITY_SYNONYMS = {
-    "paphos": ["paphos", "pafos", "пафос"],
-    "limassol": ["limassol", "lemesos", "лимассол"],
+    "paphos_airport": ["paphos airport", "pafos airport", "pfo", "аэропорт пафос", "аэропорт пафоса", "аэропорта пафос"],
+    "larnaca_airport": ["larnaca airport", "lca", "аэропорт ларнака", "аэропорт ларнаки", "аэропорта ларнака"],
+    "paphos": ["paphos", "pafos", "пафос", "karavella", "karavela", "harbour", "tombs of the kings", "coral bay"],
+    "limassol": ["limassol", "lemesos", "лимассол", "havouza"],
     "nicosia": ["nicosia", "lefkosia", "никосия"],
     "larnaca": ["larnaca", "ларнака"],
     "paralimni": ["paralimni", "ayia napa", "agia napa", "паралимни", "айя-напа"],
-    "paphos_airport": ["paphos airport", "pfo", "аэропорт пафос", "аэропорт пафоса"],
-    "larnaca_airport": ["larnaca airport", "lca", "аэропорт ларнака", "аэропорт ларнаки"]
 }
 
 

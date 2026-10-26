@@ -2,6 +2,40 @@ import re
 from .base import BaseParser
 
 
+def resolve_osypa_direction(route_name: str, dir_text: str) -> str:
+    """Converts OSYPA stop/direction text into standardized 'Origin ➝ Destination' format."""
+    dl = dir_text.lower()
+    if '612' in route_name:
+        if 'airport' in dl:
+            return 'Pafos Airport ➝ Tombs of the Kings (Paphos)'
+        return 'Tombs of the Kings (Paphos) ➝ Pafos Airport'
+    elif '613' in route_name:
+        if 'airport' in dl:
+            return 'Pafos Airport ➝ Karavella (Paphos)'
+        return 'Karavella (Paphos) ➝ Pafos Airport'
+    elif '615' in route_name:
+        if 'coral' in dl:
+            return 'Coral Bay ➝ Tombs of the Kings (Paphos)'
+        return 'Tombs of the Kings (Paphos) ➝ Coral Bay'
+    elif '618' in route_name or '603' in route_name:
+        if 'karavel' in dl:
+            return 'Karavella (Paphos) ➝ Harbour (Paphos)'
+        return 'Harbour (Paphos) ➝ Karavella (Paphos)'
+    elif '610' in route_name:
+        if 'market' in dl:
+            return 'Municipal Market (Paphos) ➝ Harbour (Paphos)'
+        return 'Harbour (Paphos) ➝ Municipal Market (Paphos)'
+    elif '611' in route_name:
+        if 'waterpark' in dl or 'beach' in dl:
+            return 'Waterpark ➝ Tombs of the Kings (Paphos)'
+        return 'Tombs of the Kings (Paphos) ➝ Waterpark'
+    elif '631' in route_name:
+        if 'petra' in dl:
+            return 'Petra tou Romiou ➝ Harbour (Paphos)'
+        return 'Harbour (Paphos) ➝ Petra tou Romiou'
+    return dir_text
+
+
 class OsypaParser(BaseParser):
     async def parse(self, session, info):
         results = []
@@ -10,8 +44,9 @@ class OsypaParser(BaseParser):
             return []
 
         grouped_times = {}
-        last_header = "Route Schedule"
-        last_day_type = "all"
+        current_direction = ""
+        current_day_type = "all"
+
         all_elements = soup.find_all(string=True)
 
         for text in all_elements:
@@ -20,27 +55,38 @@ class OsypaParser(BaseParser):
                 continue
 
             lower = txt.lower()
-            has_time = re.search(r'\d{1,2}[:.]\d{2}', txt)
-            is_header_kw = any(w in lower for w in ['from', 'departure', 'route', 'monday', 'sunday', 'daily', 'saturday'])
+            has_time = re.search(r'\b\d{1,2}[:.]\d{2}\b', txt)
 
-            if not has_time and len(txt) > 3 and (is_header_kw or len(txt) < 40):
-                candidate = txt.replace('–', '-').replace('—', '-').replace(':', '').strip()
-                if len(candidate) > 2 and not candidate.isdigit():
-                    last_header = candidate
-                    cand_lower = candidate.lower()
-                    if ("monday" in cand_lower and "sunday" in cand_lower) or "daily" in cand_lower:
-                        last_day_type = "all"
-                    elif "monday" in cand_lower and "friday" in cand_lower:
-                        last_day_type = "weekday"
-                    elif "saturday" in cand_lower or "sunday" in cand_lower:
-                        last_day_type = "weekend"
+            is_from_header = lower.startswith('from ') or any(
+                k in lower for k in [
+                    'tombs of the kings', 'karavela', 'karavella', 'harbour',
+                    'pafos airport', 'coral bay', 'municipal market',
+                    'waterpark', 'petra tou romiou'
+                ]
+            )
+
+            is_day_kw = any(w in lower for w in ['monday', 'sunday', 'daily', 'saturday', 'friday', 'weekend', 'weekday'])
+
+            if not has_time and len(txt) > 2 and len(txt) < 80:
+                if is_from_header and not is_day_kw:
+                    current_direction = resolve_osypa_direction(info['name'], txt)
+                    continue
+
+                if is_day_kw:
+                    if ("monday" in lower and "sunday" in lower) or "daily" in lower:
+                        current_day_type = "all"
+                    elif "monday" in lower and "friday" in lower:
+                        current_day_type = "weekday"
+                    elif "saturday" in lower or "sunday" in lower:
+                        current_day_type = "weekend"
                     else:
-                        last_day_type = "all"
-                continue
+                        current_day_type = "all"
+                    continue
 
             raw_times = self.extract_times(txt)
             if raw_times:
-                key = (last_header, last_day_type)
+                direction_label = current_direction or resolve_osypa_direction(info['name'], 'From ' + info['name'])
+                key = (direction_label, current_day_type)
                 if key not in grouped_times:
                     grouped_times[key] = []
                 for t, stars in raw_times:
@@ -51,13 +97,13 @@ class OsypaParser(BaseParser):
                                 "t": nt, "n": stars, "f": f"{nt}{stars}", "note_txt": ""
                             })
 
-        for (head, d_type), t_list in grouped_times.items():
+        for (dir_label, d_type), t_list in grouped_times.items():
             if not t_list:
                 continue
             t_list.sort(key=lambda x: x['t'])
             results.append({
                 "name": info['name'],
-                "desc": head,
+                "desc": dir_label,
                 "type": d_type,
                 "times": t_list,
                 "url": info['url'],

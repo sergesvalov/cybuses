@@ -116,8 +116,9 @@ export class BusCard {
         });
 
         let displayTitle = safeTitle;
-        if (displayTitle.includes('↔') && displayDesc.includes('➝')) {
-            displayTitle = displayDesc;
+        if ((displayTitle.includes('↔') || displayTitle.includes(':')) && (displayDesc.includes('➝') || displayDesc.includes('→'))) {
+            const prefix = displayTitle.includes(':') ? displayTitle.split(':')[0] + ': ' : '';
+            displayTitle = prefix + displayDesc;
             displayDesc = '';
         } else if (displayDesc === 'Route Schedule' || displayDesc === 'All stops') {
             displayDesc = '';
